@@ -1,6 +1,8 @@
 package pdu
 
 import (
+	"bytes"
+	"encoding/binary"
 	"gomodbus"
 )
 
@@ -69,3 +71,22 @@ func WriteMultipleRegistersPDU(startingAddress, quantity uint16, byteCount byte,
 		Data:         data,
 	}
 }
+
+func (pdu *PDU) ToBytes() []byte {
+	buffer := new(bytes.Buffer)
+	buffer.WriteByte(byte(pdu.FunctionCode))
+
+	if pdu.FunctionCode == gomodbus.WriteMultipleCoils || pdu.FunctionCode == gomodbus.WriteMultipleRegisters {
+		buffer.WriteByte(byte(pdu.Data[0]))
+		for i := 1; i < len(pdu.Data); i++ {
+			binary.Write(buffer, binary.BigEndian, pdu.Data[i])
+		}
+	} else {
+		for _, data := range pdu.Data {
+			binary.Write(buffer, binary.BigEndian, data)
+		}
+	}
+	return buffer.Bytes()
+
+}
+
