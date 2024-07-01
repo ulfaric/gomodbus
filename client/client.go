@@ -71,6 +71,36 @@ func calculateADULength(functionCode byte, quantity int) (int, error) {
 	return MBAP_HEADER_LENGTH + pduLength, nil
 }
 
+func DecodeModbusRegisters(registers []uint16) interface{} {
+	swapBytes := func(value uint16) uint16 {
+		return (value>>8)&0xFF | (value&0xFF)<<8
+	}
+
+	switch len(registers) {
+	case 1:
+		// Swap bytes for single uint16
+		return swapBytes(registers[0])
+	case 2:
+		// Combine two uint16 into a single 32-bit integer
+		var combined uint32
+		for i := 1; i >= 0; i-- {
+			swapped := swapBytes(registers[i])
+			combined = (combined << 16) | uint32(swapped)
+		}
+		return combined
+	case 4:
+		// Combine four uint16 into a single 64-bit integer
+		var combined uint64
+		for i := 3; i >= 0; i-- {
+			swapped := swapBytes(registers[i])
+			combined = (combined << 16) | uint64(swapped)
+		}
+		return combined
+	default:
+		panic("The input must contain exactly 1, 2, or 4 uint16 values.")
+	}
+}
+
 func (client *TCPClient) ReadCoils(transactionID, startingAddress, quantity, unitID int) ([]bool, error) {
 	pdu := pdu.New_PDU_ReadCoils(uint16(startingAddress), uint16(quantity))
 	adu := adu.New_TCP_ADU(uint16(transactionID), byte(unitID), pdu.ToBytes())
@@ -170,7 +200,7 @@ func (client *TCPClient) ReadHoldingRegisters(transactionID, startingAddress, qu
 	}
 
 	// Calculate the response length
-	responseLength, err := calculateADULength(gomodbus.ReadCoil, quantity)
+	responseLength, err := calculateADULength(gomodbus.ReadHoldingRegister, quantity)
 	if err != nil {
 		return nil, fmt.Errorf("failed to calculate response length: %v", err)
 	}
@@ -213,8 +243,7 @@ func (client *TCPClient) ReadInputRegisters(transactionID, startingAddress, quan
 	}
 
 	// Calculate the response length
-	// Calculate the response length
-	responseLength, err := calculateADULength(gomodbus.ReadCoil, quantity)
+	responseLength, err := calculateADULength(gomodbus.ReadInputRegister, quantity)
 	if err != nil {
 		return nil, fmt.Errorf("failed to calculate response length: %v", err)
 	}

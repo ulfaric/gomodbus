@@ -9,4 +9,6 @@ const (
 	WriteSingleRegister    byte = 0x06
 	WriteMultipleCoils     byte = 0x0F
 	WriteMultipleRegisters byte = 0x10
+	LittleEndian           string = "little"
+	BigEndian              string = "big"
 )
