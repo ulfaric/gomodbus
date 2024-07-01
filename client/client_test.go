@@ -4,9 +4,10 @@ import (
 	// "gomodbus/pdu"
 	// "gomodbus/adu"
 	// "gomodbus"
+	"gomodbus"
+	"math"
 	"reflect"
 	"testing"
-	"math"
 )
 
 func TestReadCoils(t *testing.T) {
@@ -85,7 +86,7 @@ func TestReadHoldingRegisters(t *testing.T) {
 	}
 	t.Logf("Response: %v", registers)
 
-	value := DecodeModbusRegisters(registers).(uint32)
+	value := DecodeModbusRegisters(registers, gomodbus.BigEndian, gomodbus.BigEndian).(uint32)
 	result := math.Float32frombits(value)
 	expected := float32(2.2)
 	if !reflect.DeepEqual(result, expected) {
@@ -115,7 +116,7 @@ func TestReadInputRegisters(t *testing.T) {
 		t.Fatalf("Failed to read input registers: %v", err)
 	}
 	t.Logf("Response: %v", registers)
-	value := DecodeModbusRegisters(registers).(uint64)
+	value := DecodeModbusRegisters(registers, gomodbus.BigEndian, gomodbus.BigEndian).(uint64)
 	result := int64(value)
 	expected := int64(-10000)
 	if !reflect.DeepEqual(result, expected) {

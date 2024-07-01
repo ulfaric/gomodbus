@@ -71,7 +71,7 @@ func calculateADULength(functionCode byte, quantity int) (int, error) {
 	return MBAP_HEADER_LENGTH + pduLength, nil
 }
 
-func DecodeModbusRegisters(registers []uint16) interface{} {
+func DecodeModbusRegisters(registers []uint16, byte_order, word_order string) interface{} {
 	swapBytes := func(value uint16) uint16 {
 		return (value>>8)&0xFF | (value&0xFF)<<8
 	}
@@ -79,21 +79,55 @@ func DecodeModbusRegisters(registers []uint16) interface{} {
 	switch len(registers) {
 	case 1:
 		// Swap bytes for single uint16
-		return swapBytes(registers[0])
+		if byte_order == gomodbus.LittleEndian {
+			return swapBytes(registers[0])
+		} else {
+			return registers[0]
+		}
 	case 2:
 		// Combine two uint16 into a single 32-bit integer
 		var combined uint32
-		for i := 1; i >= 0; i-- {
-			swapped := swapBytes(registers[i])
-			combined = (combined << 16) | uint32(swapped)
+		if word_order == gomodbus.LittleEndian {
+			for i := 1; i >= 0; i-- {
+				if byte_order == gomodbus.LittleEndian {
+					swapped := swapBytes(registers[i])
+					combined = (combined << 16) | uint32(swapped)
+				} else {
+					combined = (combined << 16) | uint32(registers[i])
+				}
+			}
+		} else {
+			for i := 0; i < 2; i++ {
+				if byte_order == gomodbus.LittleEndian {
+					swapped := swapBytes(registers[i])
+					combined = (combined << 16) | uint32(swapped)
+				} else {
+					combined = (combined << 16) | uint32(registers[i])
+				}
+			}
 		}
 		return combined
 	case 4:
 		// Combine four uint16 into a single 64-bit integer
 		var combined uint64
-		for i := 3; i >= 0; i-- {
-			swapped := swapBytes(registers[i])
-			combined = (combined << 16) | uint64(swapped)
+		if word_order == gomodbus.LittleEndian {
+			for i := 3; i >= 0; i-- {
+				if byte_order == gomodbus.LittleEndian {
+					swapped := swapBytes(registers[i])
+					combined = (combined << 16) | uint64(swapped)
+				} else {
+					combined = (combined << 16) | uint64(registers[i])
+				}
+			}
+		} else {
+			for i := 0; i < 4; i++ {
+				if byte_order == gomodbus.LittleEndian {
+					swapped := swapBytes(registers[i])
+					combined = (combined << 16) | uint64(swapped)
+				} else {
+					combined = (combined << 16) | uint64(registers[i])
+				}
+			}
 		}
 		return combined
 	default:
