@@ -3,7 +3,6 @@ package adu
 import (
 	"bytes"
 	"encoding/binary"
-	"gomodbus/pdu"
 )
 
 type TCP_ADU struct {
@@ -14,116 +13,14 @@ type TCP_ADU struct {
 	PDU           []byte
 }
 
-func ReadCoilsTCPADU(transactionID, startingAddress, quantity uint16, unitID byte) TCP_ADU {
-	pdu := pdu.ReadCoilsPDU(startingAddress, quantity)
-	pdu_bytes := pdu.ToBytes()
-	lengh := len(pdu_bytes) + 1
-	adu := TCP_ADU{
+func New_TCP_ADU(transactionID uint16, unitID byte, pdu []byte) *TCP_ADU {
+	return &TCP_ADU{
 		TransactionID: transactionID,
 		ProtocolID:    0,
-		Length:        uint16(lengh),
+		Length:        uint16(1 + len(pdu)),
 		UnitID:        unitID,
-		PDU:           pdu_bytes,
+		PDU:           pdu,
 	}
-	return adu
-}
-
-func WriteSingleCoilTCPADU(transactionID, address, value uint16, unitID byte) TCP_ADU {
-	pdu := pdu.WriteSingleCoilPDU(address, value)
-	pdu_bytes := pdu.ToBytes()
-	lengh := len(pdu_bytes) + 1
-	adu := TCP_ADU{
-		TransactionID: transactionID,
-		ProtocolID:    0,
-		Length:        uint16(lengh),
-		UnitID:        unitID,
-		PDU:           pdu_bytes,
-	}
-	return adu
-}
-
-func WriteMultipleCoilsTCPADU(transactionID, startingAddress, quantity uint16, byteCount byte, values []uint16, unitID byte) TCP_ADU {
-	pdu := pdu.WriteMultipleCoilsPDU(startingAddress, quantity, byteCount, values)
-	pdu_bytes := pdu.ToBytes()
-	lengh := len(pdu_bytes) + 1
-	adu := TCP_ADU{
-		TransactionID: transactionID,
-		ProtocolID:    0,
-		Length:        uint16(lengh),
-		UnitID:        unitID,
-		PDU:           pdu_bytes,
-	}
-	return adu
-}
-
-func ReadDiscreteInputsTCPADU(transactionID, startingAddress, quantity uint16, unitID byte) TCP_ADU {
-	pdu := pdu.ReadDiscreteInputsPDU(startingAddress, quantity)
-	pdu_bytes := pdu.ToBytes()
-	lengh := len(pdu_bytes) + 1
-	adu := TCP_ADU{
-		TransactionID: transactionID,
-		ProtocolID:    0,
-		Length:        uint16(lengh),
-		UnitID:        unitID,
-		PDU:           pdu_bytes,
-	}
-	return adu
-}
-
-func ReadHoldingRegistersTCPADU(transactionID, startingAddress, quantity uint16, unitID byte) TCP_ADU {
-	pdu := pdu.ReadHoldingRegistersPDU(startingAddress, quantity)
-	pdu_bytes := pdu.ToBytes()
-	lengh := len(pdu_bytes) + 1
-	adu := TCP_ADU{
-		TransactionID: transactionID,
-		ProtocolID:    0,
-		Length:        uint16(lengh),
-		UnitID:        unitID,
-		PDU:           pdu_bytes,
-	}
-	return adu
-}
-
-func ReadInputRegistersTCPADU(transactionID, startingAddress, quantity uint16, unitID byte) TCP_ADU {
-	pdu := pdu.ReadInputRegistersPDU(startingAddress, quantity)
-	pdu_bytes := pdu.ToBytes()
-	lengh := len(pdu_bytes) + 1
-	adu := TCP_ADU{
-		TransactionID: transactionID,
-		ProtocolID:    0,
-		Length:        uint16(lengh),
-		UnitID:        unitID,
-		PDU:           pdu_bytes,
-	}
-	return adu
-}
-
-func WriteSingleRegisterTCPADU(transactionID, address, value uint16, unitID byte) TCP_ADU {
-	pdu := pdu.WriteSingleRegisterPDU(address, value)
-	pdu_bytes := pdu.ToBytes()
-	lengh := len(pdu_bytes) + 1
-	adu := TCP_ADU{
-		TransactionID: transactionID,
-		ProtocolID:    0,
-		Length:        uint16(lengh),
-		UnitID:        unitID,
-		PDU:           pdu_bytes,
-	}
-	return adu
-}
-
-func WriteMultipleRegistersTCPADU(transactionID, startingAddress, quantity uint16, byteCount byte, values []uint16, unitID byte) TCP_ADU {
-	pdu := pdu.WriteMultipleRegistersPDU(startingAddress, quantity, byteCount, values)
-	pdu_bytes := pdu.ToBytes()
-	lengh := len(pdu_bytes) + 1
-	adu := TCP_ADU{
-		TransactionID: transactionID,
-		ProtocolID:    0,
-		Length:        uint16(lengh),
-		UnitID:        unitID,
-		PDU:           pdu_bytes,
-	}
-	return adu
 }
 
 func (adu *TCP_ADU) ToBytes() []byte {
