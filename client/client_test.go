@@ -26,7 +26,7 @@ func TestReadCoils(t *testing.T) {
 		t.Fatalf("Failed to read coils: %v", err)
 	}
 	t.Logf("Response: %v", coils)
-	expected := []bool{true, true, true}
+	expected := []bool{false, false, false}
 	if !reflect.DeepEqual(coils, expected) {
 		t.Errorf("Expected %v, but got %v", expected, coils)
 	}

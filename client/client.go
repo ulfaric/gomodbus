@@ -1,6 +1,7 @@
 package client
 
 import (
+	"encoding/binary"
 	"fmt"
 	"gomodbus"
 	"gomodbus/adu"
@@ -68,8 +69,10 @@ func (client *TCPClient) ReadCoils(transactionID, startingAddress, quantity, uni
 	}
 
 	// Calculate the response length
-	// TransactionID (2 bytes) + ProtocolID (2 bytes) + Length (2 bytes) + UnitID (1 byte) + Function Code (1 byte) + Byte Count (1 byte) + Coil Status (n bytes)
-	responseLength := 2 + 2 + 2 + 1 + 1 + 1 + (quantity+7)/8
+	responseLength, err := calculateADULength(gomodbus.ReadCoil, quantity)
+	if err != nil {
+		return nil, fmt.Errorf("failed to calculate response length: %v", err)
+	}
 
 	// Read the response
 	response := make([]byte, responseLength)
@@ -110,8 +113,11 @@ func (client *TCPClient) ReadDiscreteInputs(transactionID, startingAddress, quan
 	}
 
 	// Calculate the response length
-	// TransactionID (2 bytes) + ProtocolID (2 bytes) + Length (2 bytes) + UnitID (1 byte) + Function Code (1 byte) + Byte Count (1 byte) + Input Status (n bytes)
-	responseLength := 2 + 2 + 2 + 1 + 1 + 1 + (quantity+7)/8
+	// Calculate the response length
+	responseLength, err := calculateADULength(gomodbus.ReadCoil, quantity)
+	if err != nil {
+		return nil, fmt.Errorf("failed to calculate response length: %v", err)
+	}
 
 	// Read the response
 	response := make([]byte, responseLength)
@@ -140,4 +146,115 @@ func (client *TCPClient) ReadDiscreteInputs(transactionID, startingAddress, quan
 	}
 
 	return inputs, nil
+}
+
+func (client *TCPClient) ReadHoldingRegisters(transactionID, startingAddress, quantity, unitID int) ([]uint16, error) {
+	pdu := pdu.New_PDU_ReadHoldingRegisters(uint16(startingAddress), uint16(quantity))
+	adu := adu.New_TCP_ADU(uint16(transactionID), byte(unitID), pdu.ToBytes())
+	adu_bytes := adu.ToBytes()
+	_, err := client.conn.Write(adu_bytes)
+	if err != nil {
+		return nil, err
+	}
+
+	// Calculate the response length
+	responseLength, err := calculateADULength(gomodbus.ReadCoil, quantity)
+	if err != nil {
+		return nil, fmt.Errorf("failed to calculate response length: %v", err)
+	}
+
+	// Read the response
+	response := make([]byte, responseLength)
+	_, err = client.conn.Read(response)
+	if err != nil {
+		return nil, err
+	}
+
+	// Verify the function code in the response PDU
+	if response[7] != gomodbus.ReadHoldingRegister {
+		return nil, fmt.Errorf("invalid function code in response, expect %x but received %x", gomodbus.ReadHoldingRegister, response[7])
+	}
+
+	// Get the byte count from the response
+	byteCount := response[8]
+	if int(byteCount) != len(response)-9 {
+		return nil, fmt.Errorf("invalid byte count in response, expect %d but received %d", len(response)-9, byteCount)
+	}
+
+	// Parse the register values
+	registers := make([]uint16, quantity)
+	for i := 0; i < quantity; i++ {
+		register := binary.BigEndian.Uint16(response[9+i*2 : 9+i*2+2])
+		registers[i] = register
+	}
+
+	return registers, nil
+}
+
+func (client *TCPClient) ReadInputRegisters(transactionID, startingAddress, quantity, unitID int) ([]uint16, error) {
+	pdu := pdu.New_PDU_ReadInputRegisters(uint16(startingAddress), uint16(quantity))
+	adu := adu.New_TCP_ADU(uint16(transactionID), byte(unitID), pdu.ToBytes())
+	adu_bytes := adu.ToBytes()
+	_, err := client.conn.Write(adu_bytes)
+	if err != nil {
+		return nil, err
+	}
+
+	// Calculate the response length
+	// Calculate the response length
+	responseLength, err := calculateADULength(gomodbus.ReadCoil, quantity)
+	if err != nil {
+		return nil, fmt.Errorf("failed to calculate response length: %v", err)
+	}
+
+	// Read the response
+	response := make([]byte, responseLength)
+	_, err = client.conn.Read(response)
+	if err != nil {
+		return nil, err
+	}
+
+	// Verify the function code in the response PDU
+	if response[7] != gomodbus.ReadInputRegister {
+		return nil, fmt.Errorf("invalid function code in response, expect %x but received %x", gomodbus.ReadInputRegister, response[7])
+	}
+
+	// Get the byte count from the response
+	byteCount := response[8]
+	if int(byteCount) != len(response)-9 {
+		return nil, fmt.Errorf("invalid byte count in response, expect %d but received %d", len(response)-9, byteCount)
+	}
+
+	// Parse the register values
+	registers := make([]uint16, quantity)
+	for i := 0; i < quantity; i++ {
+		register := binary.BigEndian.Uint16(response[9+i*2 : 9+i*2+2])
+		registers[i] = register
+	}
+
+	return registers, nil
+}
+
+func (client *TCPClient) WriteSingleCoil(transactionID, address, unitID int, value bool) error {
+	pdu := pdu.New_PDU_WriteSingleCoil(uint16(address), value)
+	adu := adu.New_TCP_ADU(uint16(transactionID), byte(unitID), pdu.ToBytes())
+	adu_bytes := adu.ToBytes()
+	_, err := client.conn.Write(adu_bytes)
+	if err != nil {
+		return err
+	}
+
+	// Read the response
+	response := make([]byte, 12)
+	_, err = client.conn.Read(response)
+	if err != nil {
+		return err
+	}
+
+	// Verify the function code in the response PDU
+	if response[7] != gomodbus.WriteSingleCoil {
+		return fmt.Errorf("invalid function code in response, expect %x but received %x", gomodbus.WriteSingleCoil, response[7])
+	}
+
+	return nil
 }
