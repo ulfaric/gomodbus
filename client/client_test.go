@@ -1,9 +1,6 @@
 package client
 
 import (
-	// "gomodbus/pdu"
-	// "gomodbus/adu"
-	// "gomodbus"
 	"gomodbus"
 	"math"
 	"reflect"
@@ -85,8 +82,10 @@ func TestReadHoldingRegisters(t *testing.T) {
 		t.Fatalf("Failed to read holding registers: %v", err)
 	}
 	t.Logf("Response: %v", registers)
-
-	value := DecodeModbusRegisters(registers, gomodbus.BigEndian, gomodbus.BigEndian).(uint32)
+	test_value := float32(2.2)
+	encoded := EncodeModbusRegisters(uint32(math.Float32bits(test_value)), gomodbus.LittleEndian, gomodbus.BigEndian)
+	t.Logf("Encoded: %v", encoded)
+	value := DecodeModbusRegisters(registers, gomodbus.LittleEndian, gomodbus.BigEndian).(uint32)
 	result := math.Float32frombits(value)
 	expected := float32(2.2)
 	if !reflect.DeepEqual(result, expected) {
@@ -116,7 +115,10 @@ func TestReadInputRegisters(t *testing.T) {
 		t.Fatalf("Failed to read input registers: %v", err)
 	}
 	t.Logf("Response: %v", registers)
-	value := DecodeModbusRegisters(registers, gomodbus.BigEndian, gomodbus.BigEndian).(uint64)
+	test_value := int64(-10000)
+	encoded := EncodeModbusRegisters(uint64(test_value), gomodbus.LittleEndian, gomodbus.BigEndian)
+	t.Logf("Encoded: %v", encoded)
+	value := DecodeModbusRegisters(registers, gomodbus.LittleEndian, gomodbus.BigEndian).(uint64)
 	result := int64(value)
 	expected := int64(-10000)
 	if !reflect.DeepEqual(result, expected) {

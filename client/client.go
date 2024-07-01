@@ -135,6 +135,119 @@ func DecodeModbusRegisters(registers []uint16, byte_order, word_order string) in
 	}
 }
 
+func EncodeModbusRegisters(value interface{}, byte_order, word_order string) []uint16 {
+	splitUint32 := func(value uint32) []uint16 {
+		return []uint16{uint16(value >> 16), uint16(value & 0xFFFF)}
+	}
+
+	splitUint64 := func(value uint64) []uint16 {
+		return []uint16{uint16(value >> 48), uint16(value >> 32), uint16(value >> 16), uint16(value)}
+	}
+
+	swapBytes := func(value uint16) uint16 {
+		return (value>>8)&0xFF | (value&0xFF)<<8
+	}
+
+	reverseSlice := func(slice []uint16) {
+		for i, j := 0, len(slice)-1; i < j; i, j = i+1, j-1 {
+			slice[i], slice[j] = slice[j], slice[i]
+		}
+	}
+
+	switch value := value.(type) {
+	case uint16:
+		// Swap bytes for single uint16
+		if byte_order == gomodbus.LittleEndian {
+			return []uint16{swapBytes(value)}
+		} else {
+			return []uint16{value}
+		}
+	case int16:
+		// convert int16 to uint16 and swap bytes
+		if byte_order == gomodbus.LittleEndian {
+			return []uint16{swapBytes(uint16(value))}
+		} else {
+			return []uint16{uint16(value)}
+	}
+	case uint32:
+		// Split 32-bit integer into two uint16
+		registers := splitUint32(value)
+		if word_order == gomodbus.LittleEndian {
+			reverseSlice(registers)
+		}
+		if byte_order == gomodbus.LittleEndian {
+			for i := range registers {
+				registers[i] = swapBytes(registers[i])
+			}
+		}
+		return registers
+	case int32:
+		// convert int32 to uint32 and split into two uint16
+		registers := splitUint32(uint32(value))
+		if word_order == gomodbus.LittleEndian {
+			reverseSlice(registers)
+		}
+		if byte_order == gomodbus.LittleEndian {
+			for i := range registers {
+				registers[i] = swapBytes(registers[i])
+			}
+		}
+		return registers
+	case uint64:
+		// Split 64-bit integer into four uint16
+		registers := splitUint64(value)
+		if word_order == gomodbus.LittleEndian {
+			reverseSlice(registers)
+		}
+		if byte_order == gomodbus.LittleEndian {
+			for i := range registers {
+				registers[i] = swapBytes(registers[i])
+			}
+		}
+		return registers
+	case int64:
+		// Convert int64 to uint64 and split into four uint16
+		registers := splitUint64(uint64(value))
+		if word_order == gomodbus.LittleEndian {
+			reverseSlice(registers)
+		}
+		if byte_order == gomodbus.LittleEndian {
+			for i := range registers {
+				registers[i] = swapBytes(registers[i])
+			}
+		}
+		return registers
+	case float32:
+		// Convert float32 to uint32 and split into two uint16
+		bits := math.Float32bits(value)
+		registers := splitUint32(uint32(bits))
+		if word_order == gomodbus.LittleEndian {
+			reverseSlice(registers)
+		}
+		if byte_order == gomodbus.LittleEndian {
+			for i := range registers {
+				registers[i] = swapBytes(registers[i])
+			}
+		}
+		return registers
+	case float64:
+		// Convert float64 to uint64 and split into four uint16
+		bits := math.Float64bits(value)
+		registers := splitUint64(bits)
+		if word_order == gomodbus.LittleEndian {
+			reverseSlice(registers)
+		}
+		if byte_order == gomodbus.LittleEndian {
+			for i := range registers {
+				registers[i] = swapBytes(registers[i])
+			}
+		}
+		return registers
+	default:
+		panic("The input must be a uint16, uint32, or uint64 value.")
+	}
+}
+
 func (client *TCPClient) ReadCoils(transactionID, startingAddress, quantity, unitID int) ([]bool, error) {
 	pdu := pdu.New_PDU_ReadCoils(uint16(startingAddress), uint16(quantity))
 	adu := adu.New_TCP_ADU(uint16(transactionID), byte(unitID), pdu.ToBytes())
