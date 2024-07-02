@@ -132,40 +132,6 @@ func (s *Server) processRequest(request []byte) ([]byte, error) {
 	return response, err
 }
 
-func (s *Server) readDiscreteInputs(unitID byte, transactionID, protocolID, data, request []byte) ([]byte, error) {
-	if len(data) < 4 {
-		return s.exceptionResponse(request, 0x03), nil // Illegal Data Value
-	}
-	startAddress := binary.BigEndian.Uint16(data[:2])
-	quantity := binary.BigEndian.Uint16(data[2:4])
-
-	if startAddress+quantity > 65535 || !s.LegalDiscreteInputsAddress[startAddress] {
-		return s.exceptionResponse(request, 0x02), nil // Illegal Data Address
-	}
-
-	byteCount := (quantity + 7) / 8
-	responseLength := 3 + byteCount
-	response := make([]byte, 7+responseLength)
-
-	copy(response[0:2], transactionID)
-	copy(response[2:4], protocolID)
-	binary.BigEndian.PutUint16(response[4:6], uint16(responseLength))
-	response[6] = unitID
-	response[7] = 0x02
-	response[8] = byte(byteCount)
-
-	for i := 0; i < int(quantity); i++ {
-		if !s.LegalDiscreteInputsAddress[startAddress+uint16(i)] {
-			return s.exceptionResponse(request, 0x02), nil // Illegal Data Address
-		}
-		if s.DiscreteInputs[startAddress+uint16(i)] {
-			response[9+i/8] |= 1 << (i % 8)
-		}
-	}
-
-	return response, nil
-}
-
 func (s *Server) readCoils(unitID byte, transactionID, protocolID, data, request []byte) ([]byte, error) {
 	if len(data) < 4 {
 		return s.exceptionResponse(request, 0x03), nil // Illegal Data Value
@@ -193,6 +159,41 @@ func (s *Server) readCoils(unitID byte, transactionID, protocolID, data, request
 			return s.exceptionResponse(request, 0x02), nil // Illegal Data Address
 		}
 		if s.Coils[startAddress+uint16(i)] {
+			response[9+i/8] |= 1 << (i % 8)
+		}
+	}
+
+	return response, nil
+}
+
+func (s *Server) readDiscreteInputs(unitID byte, transactionID, protocolID, data, request []byte) ([]byte, error) {
+
+	if len(data) < 4 {
+		return s.exceptionResponse(request, 0x03), nil // Illegal Data Value
+	}
+	startAddress := binary.BigEndian.Uint16(data[:2])
+	quantity := binary.BigEndian.Uint16(data[2:4])
+
+	if startAddress+quantity > 65535 || !s.LegalDiscreteInputsAddress[startAddress] {
+		return s.exceptionResponse(request, 0x02), nil // Illegal Data Address
+	}
+
+	byteCount := (quantity + 7) / 8
+	responseLength := 3 + byteCount
+	response := make([]byte, 7+responseLength)
+
+	copy(response[0:2], transactionID)
+	copy(response[2:4], protocolID)
+	binary.BigEndian.PutUint16(response[4:6], uint16(responseLength))
+	response[6] = unitID
+	response[7] = 0x02
+	response[8] = byte(byteCount)
+
+	for i := 0; i < int(quantity); i++ {
+		if !s.LegalCoilsAddress[startAddress+uint16(i)] {
+			return s.exceptionResponse(request, 0x02), nil // Illegal Data Address
+		}
+		if s.DiscreteInputs[startAddress+uint16(i)] {
 			response[9+i/8] |= 1 << (i % 8)
 		}
 	}

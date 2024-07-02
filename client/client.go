@@ -66,7 +66,7 @@ func calculateADULength(functionCode byte, quantity int) (int, error) {
 		pduLength = 1 + 2 + 2 // Function Code + Starting Address + Quantity of Registers
 	default:
 		// Other function codes (handle accordingly)
-		return 0, fmt.Errorf("function code not implemented.")
+		return 0, fmt.Errorf("function code not implemented")
 	}
 
 	return MBAP_HEADER_LENGTH + pduLength, nil
@@ -343,7 +343,6 @@ func (client *TCPClient) ReadDiscreteInputs(transactionID, startingAddress, quan
 		return nil, err
 	}
 
-	// Calculate the response length
 	// Calculate the response length
 	responseLength, err := calculateADULength(gomodbus.ReadCoil, quantity)
 	if err != nil {
