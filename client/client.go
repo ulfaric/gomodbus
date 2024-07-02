@@ -8,6 +8,7 @@ import (
 	"gomodbus/pdu"
 	"math"
 	"net"
+	"bytes"
 )
 
 type TCPClient struct {
@@ -65,7 +66,7 @@ func calculateADULength(functionCode byte, quantity int) (int, error) {
 		pduLength = 1 + 2 + 2 // Function Code + Starting Address + Quantity of Registers
 	default:
 		// Other function codes (handle accordingly)
-		return 0, fmt.Errorf("function code not implemented in this example")
+		return 0, fmt.Errorf("function code not implemented.")
 	}
 
 	return MBAP_HEADER_LENGTH + pduLength, nil
@@ -442,10 +443,17 @@ func (client *TCPClient) WriteSingleCoil(transactionID, address, unitID int, val
 	if err != nil {
 		return err
 	}
-
 	// Verify the function code in the response PDU
 	if response[7] != gomodbus.WriteSingleCoil {
 		return fmt.Errorf("invalid function code in response, expect %x but received %x", gomodbus.WriteSingleCoil, response[7])
+	}
+
+	if !bytes.Equal(response[8:10], adu_bytes[8:10]) {
+		return fmt.Errorf("invalid address in response, expect %v but received %v", adu_bytes[8:10], response[8:10])
+	}
+
+	if !bytes.Equal(response[10:12], adu_bytes[10:12]) {
+		return fmt.Errorf("invalid value in response, expect %v but received %v", adu_bytes[10:12], response[10:12])
 	}
 
 	return nil
@@ -502,6 +510,14 @@ func (client *TCPClient) WriteMultipleCoils(transactionID, startingAddress, unit
 	// Verify the function code in the response PDU
 	if response[7] != gomodbus.WriteMultipleCoils {
 		return fmt.Errorf("invalid function code in response, expect %x but received %x", gomodbus.WriteMultipleCoils, response[7])
+	}
+
+	if !bytes.Equal(response[8:10], adu_bytes[8:10]) {
+		return fmt.Errorf("invalid starting address in response, expect %v but received %v", adu_bytes[8:10], response[8:10])
+	}
+
+	if !bytes.Equal(response[10:12], adu_bytes[10:12]) {
+		return fmt.Errorf("invalid quantity in response, expect %v but received %v", adu_bytes[10:12], response[10:12])
 	}
 
 	return nil
