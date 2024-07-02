@@ -83,7 +83,7 @@ func TestReadDiscreteInput(t *testing.T) {
 	}
 }
 
-func TestReadHoldingRegisters(t *testing.T) {
+func TestHoldingRegisters(t *testing.T) {
 	client := TCPClient{
 		Host: "192.168.5.3",
 		Port: 1502,

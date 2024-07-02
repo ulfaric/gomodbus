@@ -1,6 +1,7 @@
 package client
 
 import (
+	"bytes"
 	"encoding/binary"
 	"fmt"
 	"gomodbus"
@@ -8,7 +9,6 @@ import (
 	"gomodbus/pdu"
 	"math"
 	"net"
-	"bytes"
 )
 
 type TCPClient struct {
@@ -169,7 +169,7 @@ func EncodeModbusRegisters(value interface{}, byte_order, word_order string) []u
 			return []uint16{swapBytes(uint16(value))}
 		} else {
 			return []uint16{uint16(value)}
-	}
+		}
 	case uint32:
 		// Split 32-bit integer into two uint16
 		registers := splitUint32(value)
@@ -249,6 +249,41 @@ func EncodeModbusRegisters(value interface{}, byte_order, word_order string) []u
 	}
 }
 
+// CheckModbusError checks if the response ADU indicates an error.
+func CheckModbusError(response []byte) error {
+	// Minimum length for a valid Modbus response ADU
+	if len(response) < 9 {
+		return fmt.Errorf("invalid response length: %d", len(response))
+	}
+
+	// Extract the function code from the response
+	functionCode := response[7]
+
+	// Check if the most significant bit of the function code is set
+	if functionCode&0x80 != 0 {
+		exceptionCode := response[8]
+		return fmt.Errorf("modbus exception: %s", getExceptionMessage(exceptionCode))
+	}
+
+	return nil
+}
+
+// getExceptionMessage returns a human-readable message for a given exception code.
+func getExceptionMessage(exceptionCode byte) string {
+	switch exceptionCode {
+	case 0x01:
+		return "Illegal Function"
+	case 0x02:
+		return "Illegal Data Address"
+	case 0x03:
+		return "Illegal Data Value"
+	case 0x04:
+		return "Server Device Failure"
+	default:
+		return fmt.Sprintf("Unknown exception code: %02X", exceptionCode)
+	}
+}
+
 func (client *TCPClient) ReadCoils(transactionID, startingAddress, quantity, unitID int) ([]bool, error) {
 	pdu := pdu.New_PDU_ReadCoils(uint16(startingAddress), uint16(quantity))
 	adu := adu.New_TCP_ADU(uint16(transactionID), byte(unitID), pdu.ToBytes())
@@ -267,6 +302,12 @@ func (client *TCPClient) ReadCoils(transactionID, startingAddress, quantity, uni
 	// Read the response
 	response := make([]byte, responseLength)
 	_, err = client.conn.Read(response)
+	if err != nil {
+		return nil, err
+	}
+
+	// Check for ADU errors
+	err = CheckModbusError(response)
 	if err != nil {
 		return nil, err
 	}
@@ -316,6 +357,12 @@ func (client *TCPClient) ReadDiscreteInputs(transactionID, startingAddress, quan
 		return nil, err
 	}
 
+	// Check for ADU errors
+	err = CheckModbusError(response)
+	if err != nil {
+		return nil, err
+	}
+
 	// Verify the function code in the response PDU
 	if response[7] != gomodbus.ReadDiscreteInput {
 		return nil, fmt.Errorf("invalid function code in response, expect %x but received %x", gomodbus.ReadDiscreteInput, response[7])
@@ -356,6 +403,12 @@ func (client *TCPClient) ReadHoldingRegisters(transactionID, startingAddress, qu
 	// Read the response
 	response := make([]byte, responseLength)
 	_, err = client.conn.Read(response)
+	if err != nil {
+		return nil, err
+	}
+
+	// Check for ADU errors
+	err = CheckModbusError(response)
 	if err != nil {
 		return nil, err
 	}
@@ -403,6 +456,12 @@ func (client *TCPClient) ReadInputRegisters(transactionID, startingAddress, quan
 		return nil, err
 	}
 
+	// Check for ADU errors
+	err = CheckModbusError(response)
+	if err != nil {
+		return nil, err
+	}
+
 	// Verify the function code in the response PDU
 	if response[7] != gomodbus.ReadInputRegister {
 		return nil, fmt.Errorf("invalid function code in response, expect %x but received %x", gomodbus.ReadInputRegister, response[7])
@@ -443,6 +502,13 @@ func (client *TCPClient) WriteSingleCoil(transactionID, address, unitID int, val
 	if err != nil {
 		return err
 	}
+
+	// Check for ADU errors
+	err = CheckModbusError(response)
+	if err != nil {
+		return err
+	}
+
 	// Verify the function code in the response PDU
 	if response[7] != gomodbus.WriteSingleCoil {
 		return fmt.Errorf("invalid function code in response, expect %x but received %x", gomodbus.WriteSingleCoil, response[7])
@@ -479,11 +545,26 @@ func (client *TCPClient) WriteSingleRegister(transactionID, address, unitID int,
 		return err
 	}
 
+	// Check for ADU errors
+	err = CheckModbusError(response)
+	if err != nil {
+		return err
+	}
+
 	// Verify the function code in the response PDU
 	if response[7] != gomodbus.WriteSingleRegister {
 		return fmt.Errorf("invalid function code in response, expect %x but received %x", gomodbus.WriteSingleRegister, response[7])
 	}
 
+	// Verify the address and value in the response PDU
+	if !bytes.Equal(response[8:10], adu_bytes[8:10]) {
+		return fmt.Errorf("invalid address in response, expect %v but received %v", adu_bytes[8:10], response[8:10])
+	}
+
+	if !bytes.Equal(response[10:12], adu_bytes[10:12]) {
+		return fmt.Errorf("invalid value in response, expect %v but received %v", adu_bytes[10:12], response[10:12])
+	}
+	
 	return nil
 }
 
@@ -503,6 +584,12 @@ func (client *TCPClient) WriteMultipleCoils(transactionID, startingAddress, unit
 	}
 	response := make([]byte, responseLength)
 	_, err = client.conn.Read(response)
+	if err != nil {
+		return err
+	}
+
+	// Check for ADU errors
+	err = CheckModbusError(response)
 	if err != nil {
 		return err
 	}
@@ -543,9 +630,24 @@ func (client *TCPClient) WriteMultipleRegisters(transactionID, startingAddress, 
 		return err
 	}
 
+	// Check for ADU errors
+	err = CheckModbusError(response)
+	if err != nil {
+		return err
+	}
+
 	// Verify the function code in the response PDU
 	if response[7] != gomodbus.WriteMultipleRegisters {
 		return fmt.Errorf("invalid function code in response, expect %x but received %x", gomodbus.WriteMultipleRegisters, response[7])
+	}
+
+	
+	if !bytes.Equal(response[8:10], adu_bytes[8:10]) {
+		return fmt.Errorf("invalid starting address in response, expect %v but received %v", adu_bytes[8:10], response[8:10])
+	}
+
+	if !bytes.Equal(response[10:12], adu_bytes[10:12]) {
+		return fmt.Errorf("invalid quantity in response, expect %v but received %v", adu_bytes[10:12], response[10:12])
 	}
 
 	return nil
