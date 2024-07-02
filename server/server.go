@@ -5,17 +5,16 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"sync"
 	"time"
 )
 
 const (
 	BigEndian    = "big"
-LittleEndian = "little"
+	LittleEndian = "little"
 )
 
-type Server struct {
-	Host                         string
-	Port                         int
+type Slave struct {
 	Coils                        [65535]bool
 	LegalCoilsAddress            [65535]bool
 	DiscreteInputs               [65535]bool
@@ -24,8 +23,15 @@ type Server struct {
 	LegalHoldingRegistersAddress [65535]bool
 	InputRegisters               [65535]uint16
 	LegalInputRegistersAddress   [65535]bool
-	ByteOrder                    string
-	WordOrder                    string
+}
+
+type Server struct {
+	Host      string
+	Port      int
+	ByteOrder string
+	WordOrder string
+	Slaves    map[byte]*Slave
+	mu        sync.Mutex
 }
 
 func NewServer(host, byteOrder, wordOrder string, port int) (*Server, error) {
@@ -40,7 +46,14 @@ func NewServer(host, byteOrder, wordOrder string, port int) (*Server, error) {
 		Port:      port,
 		ByteOrder: byteOrder,
 		WordOrder: wordOrder,
+		Slaves:    make(map[byte]*Slave),
 	}, nil
+}
+
+func (s *Server) AddSlave(unitID byte) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.Slaves[unitID] = &Slave{}
 }
 
 func (s *Server) Start() error {
@@ -89,6 +102,16 @@ func (s *Server) handleConnection(conn net.Conn) {
 	}
 }
 
+func (s *Server) getSlave(unitID byte) (*Slave, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	slave, exists := s.Slaves[unitID]
+	if !exists {
+		return nil, fmt.Errorf("slave %d not found", unitID)
+	}
+	return slave, nil
+}
+
 func (s *Server) processRequest(request []byte) ([]byte, error) {
 	if len(request) < 8 {
 		return s.exceptionResponse(request, 0x03), nil // Illegal Data Value
@@ -106,25 +129,29 @@ func (s *Server) processRequest(request []byte) ([]byte, error) {
 		return s.exceptionResponse(request, 0x03), nil // Illegal Data Value
 	}
 
+	slave, err := s.getSlave(unitID)
+	if err != nil {
+		return s.exceptionResponse(request, 0x04), nil // Server Device Failure
+	}
+
 	var response []byte
-	var err error
 	switch functionCode {
 	case 0x01:
-		response, err = s.readCoils(unitID, transactionID, protocolID, data, request)
+		response, err = s.readCoils(slave, unitID, transactionID, protocolID, data, request)
 	case 0x02:
-		response, err = s.readDiscreteInputs(unitID, transactionID, protocolID, data, request)
+		response, err = s.readDiscreteInputs(slave, unitID, transactionID, protocolID, data, request)
 	case 0x03:
-		response, err = s.readHoldingRegisters(unitID, transactionID, protocolID, data, request)
+		response, err = s.readHoldingRegisters(slave, unitID, transactionID, protocolID, data, request)
 	case 0x04:
-		response, err = s.readInputRegisters(unitID, transactionID, protocolID, data, request)
+		response, err = s.readInputRegisters(slave, unitID, transactionID, protocolID, data, request)
 	case 0x05:
-		response, err = s.writeSingleCoil(unitID, transactionID, protocolID, data, request)
+		response, err = s.writeSingleCoil(slave, unitID, transactionID, protocolID, data, request)
 	case 0x06:
-		response, err = s.writeSingleRegister(unitID, transactionID, protocolID, data, request)
+		response, err = s.writeSingleRegister(slave, unitID, transactionID, protocolID, data, request)
 	case 0x0F:
-		response, err = s.writeMultipleCoils(unitID, transactionID, protocolID, data, request)
+		response, err = s.writeMultipleCoils(slave, unitID, transactionID, protocolID, data, request)
 	case 0x10:
-		response, err = s.writeMultipleRegisters(unitID, transactionID, protocolID, data, request)
+		response, err = s.writeMultipleRegisters(slave, unitID, transactionID, protocolID, data, request)
 	default:
 		response = s.exceptionResponse(request, 0x01) // Illegal Function
 	}
@@ -132,14 +159,14 @@ func (s *Server) processRequest(request []byte) ([]byte, error) {
 	return response, err
 }
 
-func (s *Server) readCoils(unitID byte, transactionID, protocolID, data, request []byte) ([]byte, error) {
+func (s *Server) readCoils(slave *Slave, unitID byte, transactionID, protocolID, data, request []byte) ([]byte, error) {
 	if len(data) < 4 {
 		return s.exceptionResponse(request, 0x03), nil // Illegal Data Value
 	}
 	startAddress := binary.BigEndian.Uint16(data[:2])
 	quantity := binary.BigEndian.Uint16(data[2:4])
 
-	if startAddress+quantity > 65535 || !s.LegalCoilsAddress[startAddress] {
+	if startAddress+quantity > 65535 || !slave.LegalCoilsAddress[startAddress] {
 		return s.exceptionResponse(request, 0x02), nil // Illegal Data Address
 	}
 
@@ -155,10 +182,10 @@ func (s *Server) readCoils(unitID byte, transactionID, protocolID, data, request
 	response[8] = byte(byteCount)
 
 	for i := 0; i < int(quantity); i++ {
-		if !s.LegalCoilsAddress[startAddress+uint16(i)] {
+		if !slave.LegalCoilsAddress[startAddress+uint16(i)] {
 			return s.exceptionResponse(request, 0x02), nil // Illegal Data Address
 		}
-		if s.Coils[startAddress+uint16(i)] {
+		if slave.Coils[startAddress+uint16(i)] {
 			response[9+i/8] |= 1 << (i % 8)
 		}
 	}
@@ -166,15 +193,14 @@ func (s *Server) readCoils(unitID byte, transactionID, protocolID, data, request
 	return response, nil
 }
 
-func (s *Server) readDiscreteInputs(unitID byte, transactionID, protocolID, data, request []byte) ([]byte, error) {
-
+func (s *Server) readDiscreteInputs(slave *Slave, unitID byte, transactionID, protocolID, data, request []byte) ([]byte, error) {
 	if len(data) < 4 {
 		return s.exceptionResponse(request, 0x03), nil // Illegal Data Value
 	}
 	startAddress := binary.BigEndian.Uint16(data[:2])
 	quantity := binary.BigEndian.Uint16(data[2:4])
 
-	if startAddress+quantity > 65535 || !s.LegalDiscreteInputsAddress[startAddress] {
+	if startAddress+quantity > 65535 || !slave.LegalDiscreteInputsAddress[startAddress] {
 		return s.exceptionResponse(request, 0x02), nil // Illegal Data Address
 	}
 
@@ -190,10 +216,10 @@ func (s *Server) readDiscreteInputs(unitID byte, transactionID, protocolID, data
 	response[8] = byte(byteCount)
 
 	for i := 0; i < int(quantity); i++ {
-		if !s.LegalCoilsAddress[startAddress+uint16(i)] {
+		if !slave.LegalDiscreteInputsAddress[startAddress+uint16(i)] {
 			return s.exceptionResponse(request, 0x02), nil // Illegal Data Address
 		}
-		if s.DiscreteInputs[startAddress+uint16(i)] {
+		if slave.DiscreteInputs[startAddress+uint16(i)] {
 			response[9+i/8] |= 1 << (i % 8)
 		}
 	}
@@ -201,21 +227,85 @@ func (s *Server) readDiscreteInputs(unitID byte, transactionID, protocolID, data
 	return response, nil
 }
 
-func (s *Server) writeSingleCoil(unitID byte, transactionID, protocolID, data, request []byte) ([]byte, error) {
+func (s *Server) readHoldingRegisters(slave *Slave, unitID byte, transactionID, protocolID, data, request []byte) ([]byte, error) {
+	if len(data) < 4 {
+		return s.exceptionResponse(request, 0x03), nil // Illegal Data Value
+	}
+	startAddress := binary.BigEndian.Uint16(data[:2])
+	quantity := binary.BigEndian.Uint16(data[2:4])
+
+	if startAddress+quantity > 65535 || !slave.LegalHoldingRegistersAddress[startAddress] {
+		return s.exceptionResponse(request, 0x02), nil // Illegal Data Address
+	}
+
+	responseLength := 3 + 2*quantity
+	response := make([]byte, 7+responseLength)
+
+	copy(response[0:2], transactionID)
+	copy(response[2:4], protocolID)
+	binary.BigEndian.PutUint16(response[4:6], uint16(responseLength))
+	response[6] = unitID
+	response[7] = 0x03
+	response[8] = byte(2 * quantity)
+
+	for i := 0; i < int(quantity); i++ {
+		if !slave.LegalHoldingRegistersAddress[startAddress+uint16(i)] {
+			return s.exceptionResponse(request, 0x02), nil // Illegal Data Address
+		}
+		value := slave.HoldingRegisters[startAddress+uint16(i)]
+		binary.BigEndian.PutUint16(response[9+2*i:], value)
+	}
+
+	return response, nil
+}
+
+func (s *Server) readInputRegisters(slave *Slave, unitID byte, transactionID, protocolID, data, request []byte) ([]byte, error) {
+	if len(data) < 4 {
+		return s.exceptionResponse(request, 0x03), nil // Illegal Data Value
+	}
+	startAddress := binary.BigEndian.Uint16(data[:2])
+	quantity := binary.BigEndian.Uint16(data[2:4])
+
+	if startAddress+quantity > 65535 || !slave.LegalInputRegistersAddress[startAddress] {
+		return s.exceptionResponse(request, 0x02), nil // Illegal Data Address
+	}
+
+	responseLength := 3 + 2*quantity
+	response := make([]byte, 7+responseLength)
+
+	copy(response[0:2], transactionID)
+	copy(response[2:4], protocolID)
+	binary.BigEndian.PutUint16(response[4:6], uint16(responseLength))
+	response[6] = unitID
+	response[7] = 0x04
+	response[8] = byte(2 * quantity)
+
+	for i := 0; i < int(quantity); i++ {
+		if !slave.LegalInputRegistersAddress[startAddress+uint16(i)] {
+			return s.exceptionResponse(request, 0x02), nil // Illegal Data Address
+		}
+		value := slave.InputRegisters[startAddress+uint16(i)]
+		binary.BigEndian.PutUint16(response[9+2*i:], value)
+	}
+
+	return response, nil
+}
+
+func (s *Server) writeSingleCoil(slave *Slave, unitID byte, transactionID, protocolID, data, request []byte) ([]byte, error) {
 	if len(data) < 4 {
 		return s.exceptionResponse(request, 0x03), nil // Illegal Data Value
 	}
 	address := binary.BigEndian.Uint16(data[:2])
 	value := binary.BigEndian.Uint16(data[2:4])
 
-	if address >= 65535 || !s.LegalCoilsAddress[address] {
+	if address >= 65535 || !slave.LegalCoilsAddress[address] {
 		return s.exceptionResponse(request, 0x02), nil // Illegal Data Address
 	}
 
 	if value == 0xFF00 {
-		s.Coils[address] = true
+		slave.Coils[address] = true
 	} else if value == 0x0000 {
-		s.Coils[address] = false
+		slave.Coils[address] = false
 	} else {
 		return s.exceptionResponse(request, 0x03), nil // Illegal Data Value
 	}
@@ -232,7 +322,7 @@ func (s *Server) writeSingleCoil(unitID byte, transactionID, protocolID, data, r
 	return response, nil
 }
 
-func (s *Server) writeMultipleCoils(unitID byte, transactionID, protocolID, data, request []byte) ([]byte, error) {
+func (s *Server) writeMultipleCoils(slave *Slave, unitID byte, transactionID, protocolID, data, request []byte) ([]byte, error) {
 	if len(data) < 5 {
 		return s.exceptionResponse(request, 0x03), nil // Illegal Data Value
 	}
@@ -240,18 +330,18 @@ func (s *Server) writeMultipleCoils(unitID byte, transactionID, protocolID, data
 	quantity := binary.BigEndian.Uint16(data[2:4])
 	byteCount := data[4]
 
-	if len(data) < int(5+byteCount) || startAddress+quantity > 65535 || !s.LegalCoilsAddress[startAddress] {
+	if len(data) < int(5+byteCount) || startAddress+quantity > 65535 || !slave.LegalCoilsAddress[startAddress] {
 		return s.exceptionResponse(request, 0x02), nil // Illegal Data Address
 	}
 
 	for i := 0; i < int(quantity); i++ {
-		if !s.LegalCoilsAddress[startAddress+uint16(i)] {
+		if !slave.LegalCoilsAddress[startAddress+uint16(i)] {
 			return s.exceptionResponse(request, 0x02), nil // Illegal Data Address
 		}
 		if data[5+i/8]&(1<<(i%8)) != 0 {
-			s.Coils[startAddress+uint16(i)] = true
+			slave.Coils[startAddress+uint16(i)] = true
 		} else {
-			s.Coils[startAddress+uint16(i)] = false
+			slave.Coils[startAddress+uint16(i)] = false
 		}
 	}
 
@@ -267,82 +357,18 @@ func (s *Server) writeMultipleCoils(unitID byte, transactionID, protocolID, data
 	return response, nil
 }
 
-func (s *Server) readInputRegisters(unitID byte, transactionID, protocolID, data, request []byte) ([]byte, error) {
-	if len(data) < 4 {
-		return s.exceptionResponse(request, 0x03), nil // Illegal Data Value
-	}
-	startAddress := binary.BigEndian.Uint16(data[:2])
-	quantity := binary.BigEndian.Uint16(data[2:4])
-
-	if startAddress+quantity > 65535 || !s.LegalInputRegistersAddress[startAddress] {
-		return s.exceptionResponse(request, 0x02), nil // Illegal Data Address
-	}
-
-	responseLength := 3 + 2*quantity
-	response := make([]byte, 7+responseLength)
-
-	copy(response[0:2], transactionID)
-	copy(response[2:4], protocolID)
-	binary.BigEndian.PutUint16(response[4:6], uint16(responseLength))
-	response[6] = unitID
-	response[7] = 0x04
-	response[8] = byte(2 * quantity)
-
-	for i := 0; i < int(quantity); i++ {
-		if !s.LegalInputRegistersAddress[startAddress+uint16(i)] {
-			return s.exceptionResponse(request, 0x02), nil // Illegal Data Address
-		}
-		value := s.InputRegisters[startAddress+uint16(i)]
-		binary.BigEndian.PutUint16(response[9+2*i:], value)
-	}
-
-	return response, nil
-}
-
-func (s *Server) readHoldingRegisters(unitID byte, transactionID, protocolID, data, request []byte) ([]byte, error) {
-	if len(data) < 4 {
-		return s.exceptionResponse(request, 0x03), nil // Illegal Data Value
-	}
-	startAddress := binary.BigEndian.Uint16(data[:2])
-	quantity := binary.BigEndian.Uint16(data[2:4])
-
-	if startAddress+quantity > 65535 || !s.LegalHoldingRegistersAddress[startAddress] {
-		return s.exceptionResponse(request, 0x02), nil // Illegal Data Address
-	}
-
-	responseLength := 3 + 2*quantity
-	response := make([]byte, 7+responseLength)
-
-	copy(response[0:2], transactionID)
-	copy(response[2:4], protocolID)
-	binary.BigEndian.PutUint16(response[4:6], uint16(responseLength))
-	response[6] = unitID
-	response[7] = 0x03
-	response[8] = byte(2 * quantity)
-
-	for i := 0; i < int(quantity); i++ {
-		if !s.LegalHoldingRegistersAddress[startAddress+uint16(i)] {
-			return s.exceptionResponse(request, 0x02), nil // Illegal Data Address
-		}
-		value := s.HoldingRegisters[startAddress+uint16(i)]
-		binary.BigEndian.PutUint16(response[9+2*i:], value)
-	}
-
-	return response, nil
-}
-
-func (s *Server) writeSingleRegister(unitID byte, transactionID, protocolID, data, request []byte) ([]byte, error) {
+func (s *Server) writeSingleRegister(slave *Slave, unitID byte, transactionID, protocolID, data, request []byte) ([]byte, error) {
 	if len(data) < 4 {
 		return s.exceptionResponse(request, 0x03), nil // Illegal Data Value
 	}
 	address := binary.BigEndian.Uint16(data[:2])
 	value := binary.BigEndian.Uint16(data[2:4])
 
-	if address >= 65535 || !s.LegalHoldingRegistersAddress[address] {
+	if address >= 65535 || !slave.LegalHoldingRegistersAddress[address] {
 		return s.exceptionResponse(request, 0x02), nil // Illegal Data Address
 	}
 
-	s.HoldingRegisters[address] = value
+	slave.HoldingRegisters[address] = value
 
 	response := make([]byte, 12)
 	copy(response[0:2], transactionID)
@@ -356,7 +382,7 @@ func (s *Server) writeSingleRegister(unitID byte, transactionID, protocolID, dat
 	return response, nil
 }
 
-func (s *Server) writeMultipleRegisters(unitID byte, transactionID, protocolID, data, request []byte) ([]byte, error) {
+func (s *Server) writeMultipleRegisters(slave *Slave, unitID byte, transactionID, protocolID, data, request []byte) ([]byte, error) {
 	if len(data) < 5 {
 		return s.exceptionResponse(request, 0x03), nil // Illegal Data Value
 	}
@@ -364,16 +390,16 @@ func (s *Server) writeMultipleRegisters(unitID byte, transactionID, protocolID, 
 	quantity := binary.BigEndian.Uint16(data[2:4])
 	byteCount := data[4]
 
-	if len(data) < int(5+byteCount) || startAddress+quantity > 65535 || !s.LegalHoldingRegistersAddress[startAddress] {
+	if len(data) < int(5+byteCount) || startAddress+quantity > 65535 || !slave.LegalHoldingRegistersAddress[startAddress] {
 		return s.exceptionResponse(request, 0x02), nil // Illegal Data Address
 	}
 
 	for i := 0; i < int(quantity); i++ {
-		if !s.LegalHoldingRegistersAddress[startAddress+uint16(i)] {
+		if !slave.LegalHoldingRegistersAddress[startAddress+uint16(i)] {
 			return s.exceptionResponse(request, 0x02), nil // Illegal Data Address
 		}
 		value := binary.BigEndian.Uint16(data[5+2*i:])
-		s.HoldingRegisters[startAddress+uint16(i)] = value
+		slave.HoldingRegisters[startAddress+uint16(i)] = value
 	}
 
 	response := make([]byte, 12)
@@ -387,7 +413,6 @@ func (s *Server) writeMultipleRegisters(unitID byte, transactionID, protocolID, 
 
 	return response, nil
 }
-
 
 func (s *Server) exceptionResponse(request []byte, exceptionCode byte) []byte {
 	transactionID := request[0:2]

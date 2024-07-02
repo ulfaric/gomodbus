@@ -11,30 +11,33 @@ import (
 // Start a simple Modbus server with legal addresses set
 func startModbusServer(t *testing.T) *Server {
 	s := Server{
-		Host:                         "127.0.0.1",
-		Port:                         502,
-		ByteOrder:                    gomodbus.BigEndian,
-		WordOrder:                    gomodbus.BigEndian,
+		Host:      "127.0.0.1",
+		Port:      502,
+		ByteOrder: gomodbus.BigEndian,
+		WordOrder: gomodbus.BigEndian,
+		Slaves:    make(map[byte]*Slave),
 	}
 
-	// Set legal addresses and initialize discrete inputs
+	// Add a slave
+	s.AddSlave(1)
+
+	// Set legal addresses and initialize discrete inputs for the slave
+	slave := s.Slaves[1]
 	for i := 0; i < 65535; i++ {
-		s.LegalCoilsAddress[i] = true
-		s.LegalDiscreteInputsAddress[i] = true
-		s.LegalHoldingRegistersAddress[i] = true
-		s.LegalInputRegistersAddress[i] = true
+		slave.LegalCoilsAddress[i] = true
+		slave.LegalDiscreteInputsAddress[i] = true
+		slave.LegalHoldingRegistersAddress[i] = true
+		slave.LegalInputRegistersAddress[i] = true
 
 		// Initialize some discrete inputs for testing
 		if i%2 == 0 {
-			s.DiscreteInputs[i] = true
+			slave.DiscreteInputs[i] = true
 		}
 	}
 
 	go func() {
 		if err := s.Start(); err != nil {
-			go func() {
-				t.Errorf("failed to start Modbus server: %v", err)
-			}()
+			t.Errorf("failed to start Modbus server: %v", err)
 		}
 	}()
 	time.Sleep(2 * time.Second) // Give the server some time to start
