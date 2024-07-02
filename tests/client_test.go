@@ -1,19 +1,20 @@
-package client
+package tests
 
 import (
-	"gomodbus"
+	"github.com/ulfaric/gomodbus"
+	"github.com/ulfaric/gomodbus/client"
 	"reflect"
 	"testing"
 	"math"
 )
 
-func TestReadCoils(t *testing.T) {
-	client := TCPClient{
+func TestClientReadCoils(t *testing.T) {
+	c := client.TCPClient{
 		Host: "192.168.5.3",
 		Port: 1502,
 	}
 
-	err := client.Connect()
+	err := c.Connect()
 	if err != nil {
 		t.Fatalf("Failed to connect: %v", err)
 	}
@@ -25,11 +26,11 @@ func TestReadCoils(t *testing.T) {
 	unitID := 0
 	value := true
 	t.Logf("Writing single coil at address %v : %v", startingAddress, value)
-	err = client.WriteSingleCoil(transactionID, startingAddress, unitID, value)
+	err = c.WriteSingleCoil(transactionID, startingAddress, unitID, value)
 	if err != nil {
 		t.Fatalf("Failed to write single coil: %v", err)
 	}
-	coil, err := client.ReadCoils(transactionID, startingAddress, quantity, unitID)
+	coil, err := c.ReadCoils(transactionID, startingAddress, quantity, unitID)
 	if err != nil {
 		t.Fatalf("Failed to read coils: %v", err)
 	}
@@ -42,11 +43,11 @@ func TestReadCoils(t *testing.T) {
 	quantity = 3
 	values := []bool{true, false, true}
 	t.Logf("Writing multiple coils at address %v - %v : %v", startingAddress, startingAddress+quantity, values)
-	err = client.WriteMultipleCoils(transactionID, startingAddress, unitID, values)
+	err = c.WriteMultipleCoils(transactionID, startingAddress, unitID, values)
 	if err != nil {
 		t.Fatalf("Failed to write multiple coils: %v", err)
 	}
-	coils, err := client.ReadCoils(transactionID, startingAddress, quantity, unitID)
+	coils, err := c.ReadCoils(transactionID, startingAddress, quantity, unitID)
 	if err != nil {
 		t.Fatalf("Failed to read coils: %v", err)
 	}
@@ -56,8 +57,8 @@ func TestReadCoils(t *testing.T) {
 	t.Logf("Coils at address %v - %v : %v", startingAddress, startingAddress+quantity, coils)
 }
 
-func TestReadDiscreteInput(t *testing.T) {
-	client := TCPClient{
+func TestClientReadDiscreteInput(t *testing.T) {
+	client := client.TCPClient{
 		Host: "192.168.5.3",
 		Port: 1502,
 	}
@@ -83,13 +84,13 @@ func TestReadDiscreteInput(t *testing.T) {
 	}
 }
 
-func TestHoldingRegisters(t *testing.T) {
-	client := TCPClient{
+func TestClientHoldingRegisters(t *testing.T) {
+	c := client.TCPClient{
 		Host: "192.168.5.3",
 		Port: 1502,
 	}
 
-	err := client.Connect()
+	err := c.Connect()
 	if err != nil {
 		t.Fatalf("Failed to connect: %v", err)
 	}
@@ -101,11 +102,11 @@ func TestHoldingRegisters(t *testing.T) {
 	unitID := 0
 	value := uint16(10000)
 	t.Logf("Writing single register at address %v : %v", startingAddress, value)
-	err = client.WriteSingleRegister(transactionID, startingAddress, unitID, value)
+	err = c.WriteSingleRegister(transactionID, startingAddress, unitID, value)
 	if err != nil {
 		t.Fatalf("Failed to write single register: %v", err)
 	}
-	registers, err := client.ReadHoldingRegisters(transactionID, startingAddress, quantity, unitID)
+	registers, err := c.ReadHoldingRegisters(transactionID, startingAddress, quantity, unitID)
 	if err != nil {
 		t.Fatalf("Failed to read holding registers: %v", err)
 	}
@@ -118,13 +119,13 @@ func TestHoldingRegisters(t *testing.T) {
 	quantity = 4
 	value_64 := int64(-10000)
 	t.Logf("Wrting value: %v as 64 bits into 4 registers", value_64)
-	values := EncodeModbusRegisters(value_64, gomodbus.BigEndian, gomodbus.BigEndian)
+	values := client.EncodeModbusRegisters(value_64, gomodbus.BigEndian, gomodbus.BigEndian)
 	t.Logf("Writing multiple registers at address %v - %v : %v", startingAddress, startingAddress+quantity, values)
-	err = client.WriteMultipleRegisters(transactionID, startingAddress, unitID, values)
+	err = c.WriteMultipleRegisters(transactionID, startingAddress, unitID, values)
 	if err != nil {
 		t.Fatalf("Failed to write multiple registers: %v", err)
 	}
-	registers, err = client.ReadHoldingRegisters(transactionID, startingAddress, quantity, unitID)
+	registers, err = c.ReadHoldingRegisters(transactionID, startingAddress, quantity, unitID)
 	if err != nil {
 		t.Fatalf("Failed to read holding registers: %v", err)
 	}
@@ -132,7 +133,7 @@ func TestHoldingRegisters(t *testing.T) {
 		t.Errorf("Expected %v, but got %v", values, registers)
 	}
 	t.Logf("Holding registers at address %v - %v : %v", startingAddress, startingAddress+quantity, registers)
-	decoded_value := int64(DecodeModbusRegisters(registers, gomodbus.BigEndian, gomodbus.BigEndian).(uint64))
+	decoded_value := int64(client.DecodeModbusRegisters(registers, gomodbus.BigEndian, gomodbus.BigEndian).(uint64))
 	if !reflect.DeepEqual(decoded_value, value_64) {
 		t.Errorf("Expected %v, but got %v", value_64, decoded_value)
 	}
@@ -142,13 +143,13 @@ func TestHoldingRegisters(t *testing.T) {
 	quantity = 2
 	value_32 := float32(22.33)
 	t.Logf("Wrting value: %v as 32 bits into 2 registers", value_32)
-	values = EncodeModbusRegisters(value_32, gomodbus.BigEndian, gomodbus.BigEndian)
+	values = client.EncodeModbusRegisters(value_32, gomodbus.BigEndian, gomodbus.BigEndian)
 	t.Logf("Writing multiple registers at address %v - %v : %v", startingAddress, startingAddress+quantity, values)
-	err = client.WriteMultipleRegisters(transactionID, startingAddress, unitID, values)
+	err = c.WriteMultipleRegisters(transactionID, startingAddress, unitID, values)
 	if err != nil {
 		t.Fatalf("Failed to write multiple registers: %v", err)
 	}
-	registers, err = client.ReadHoldingRegisters(transactionID, startingAddress, quantity, unitID)
+	registers, err = c.ReadHoldingRegisters(transactionID, startingAddress, quantity, unitID)
 	if err != nil {
 		t.Fatalf("Failed to read holding registers: %v", err)
 	}
@@ -157,20 +158,24 @@ func TestHoldingRegisters(t *testing.T) {
 		t.Errorf("Expected %v, but got %v", values, registers)
 	}
 	t.Logf("Holding registers at address %v - %v : %v", startingAddress, startingAddress+quantity, registers)
-	decoded_value_32 := math.Float32frombits(DecodeModbusRegisters(registers, gomodbus.BigEndian, gomodbus.BigEndian).(uint32))
+	decoded_value_32 := math.Float32frombits(client.DecodeModbusRegisters(registers, gomodbus.BigEndian, gomodbus.BigEndian).(uint32))
 	if !reflect.DeepEqual(decoded_value_32,value_32) {
 		t.Errorf("Expected %v, but got %v", value_32, decoded_value_32)
 	}
 	t.Logf("Value: %v", decoded_value_32)
 }
 
-func TestReadInputRegisters(t *testing.T) {
-	client := TCPClient{
+func EncodeModbusRegisters(value_64 int64, s1, s2 string) {
+	panic("unimplemented")
+}
+
+func TestClientReadInputRegisters(t *testing.T) {
+	c := client.TCPClient{
 		Host: "192.168.5.3",
 		Port: 1502,
 	}
 
-	err := client.Connect()
+	err := c.Connect()
 	if err != nil {
 		t.Fatalf("Failed to connect: %v", err)
 	}
@@ -180,7 +185,7 @@ func TestReadInputRegisters(t *testing.T) {
 	quantity := 4
 	startingAddress := 0
 	unitID := 0
-	registers, err := client.ReadInputRegisters(transactionID, startingAddress, quantity, unitID)
+	registers, err := c.ReadInputRegisters(transactionID, startingAddress, quantity, unitID)
 	if err != nil {
 		t.Fatalf("Failed to read input registers: %v", err)
 	}

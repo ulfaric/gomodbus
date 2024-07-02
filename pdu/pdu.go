@@ -3,7 +3,7 @@ package pdu
 import (
 	"bytes"
 	"encoding/binary"
-	"gomodbus"
+	"github.com/ulfaric/gomodbus"
 )
 
 type PDU_Read struct {

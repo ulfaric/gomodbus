@@ -4,9 +4,9 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
-	"gomodbus"
-	"gomodbus/adu"
-	"gomodbus/pdu"
+	"github.com/ulfaric/gomodbus"
+	"github.com/ulfaric/gomodbus/adu"
+	"github.com/ulfaric/gomodbus/pdu"
 	"math"
 	"net"
 )

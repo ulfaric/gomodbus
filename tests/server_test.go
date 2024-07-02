@@ -1,21 +1,21 @@
-package server
+package tests
 
 import (
 	"testing"
 	"time"
-
-	"gomodbus/client"
-	"gomodbus"
+	"github.com/ulfaric/gomodbus"
+	"github.com/ulfaric/gomodbus/client"
+	"github.com/ulfaric/gomodbus/server"
 )
 
 // Start a simple Modbus server with legal addresses set
-func startModbusServer(t *testing.T) *Server {
-	s := Server{
+func startModbusServer(t *testing.T) *server.Server {
+	s := server.Server{
 		Host:      "127.0.0.1",
 		Port:      502,
 		ByteOrder: gomodbus.BigEndian,
 		WordOrder: gomodbus.BigEndian,
-		Slaves:    make(map[byte]*Slave),
+		Slaves:    make(map[byte]*server.Slave),
 	}
 
 	// Add a slave
