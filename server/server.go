@@ -3,15 +3,13 @@ package server
 import (
 	"encoding/binary"
 	"fmt"
+	"github.com/ulfaric/gomodbus"
+	"gopkg.in/yaml.v3"
 	"log"
 	"net"
+	"os"
 	"sync"
 	"time"
-)
-
-const (
-	BigEndian    = "big"
-	LittleEndian = "little"
 )
 
 type Slave struct {
@@ -34,20 +32,91 @@ type Server struct {
 	mu        sync.Mutex
 }
 
+type Config struct {
+	Host      string `yaml:"host"`
+	Port      int    `yaml:"port"`
+	ByteOrder string `yaml:"byteOrder"`
+	WordOrder string `yaml:"wordOrder"`
+	Slaves    []struct {
+		UnitID byte `yaml:"unitID"`
+		Coils  []struct {
+			Address uint16 `yaml:"address"`
+			Value   bool   `yaml:"value"`
+		} `yaml:"coils"`
+		DiscreteInputs []struct {
+			Address uint16 `yaml:"address"`
+			Value   bool   `yaml:"value"`
+		} `yaml:"discreteInputs"`
+		HoldingRegisters []struct {
+			Address uint16 `yaml:"address"`
+			Value   uint16 `yaml:"value"`
+		} `yaml:"holdingRegisters"`
+		InputRegisters []struct {
+			Address uint16 `yaml:"address"`
+			Value   uint16 `yaml:"value"`
+		} `yaml:"inputRegisters"`
+	} `yaml:"slaves"`
+}
+
 func NewServer(host, byteOrder, wordOrder string, port int) (*Server, error) {
-	if byteOrder != BigEndian && byteOrder != LittleEndian {
-		return nil, fmt.Errorf("invalid byte order: %s", byteOrder)
-	}
-	if wordOrder != BigEndian && wordOrder != LittleEndian {
-		return nil, fmt.Errorf("invalid word order: %s", wordOrder)
-	}
-	return &Server{
-		Host:      host,
-		Port:      port,
-		ByteOrder: byteOrder,
-		WordOrder: wordOrder,
-		Slaves:    make(map[byte]*Slave),
-	}, nil
+    // read config file
+    data, err := os.ReadFile("config.yaml")
+    if err != nil {
+        log.Printf("Failed to read config file: %v", err)
+    }
+
+    // parse config file
+    var config Config
+    err = yaml.Unmarshal(data, &config)
+    if err != nil {
+        log.Printf("Failed to parse config file: %v", err)
+    }
+
+    if config.ByteOrder != gomodbus.BigEndian && config.ByteOrder != gomodbus.LittleEndian {
+        return nil, fmt.Errorf("invalid byte order: %s", config.ByteOrder)
+    }
+    if config.WordOrder != gomodbus.BigEndian && config.WordOrder != gomodbus.LittleEndian {
+        return nil, fmt.Errorf("invalid word order: %s", config.WordOrder)
+    }
+
+    slaves := make(map[byte]*Slave)
+    for _, slaveConfig := range config.Slaves {
+        slave := &Slave{}
+
+        // Set coils and their legal addresses
+        for _, coil := range slaveConfig.Coils {
+            slave.Coils[coil.Address] = coil.Value
+            slave.LegalCoilsAddress[coil.Address] = true
+        }
+
+        // Set discrete inputs and their legal addresses
+        for _, input := range slaveConfig.DiscreteInputs {
+            slave.DiscreteInputs[input.Address] = input.Value
+            slave.LegalDiscreteInputsAddress[input.Address] = true
+        }
+
+        // Set holding registers and their legal addresses
+        for _, register := range slaveConfig.HoldingRegisters {
+            slave.HoldingRegisters[register.Address] = register.Value
+            slave.LegalHoldingRegistersAddress[register.Address] = true
+        }
+
+        // Set input registers and their legal addresses
+        for _, register := range slaveConfig.InputRegisters {
+            slave.InputRegisters[register.Address] = register.Value
+            slave.LegalInputRegistersAddress[register.Address] = true
+        }
+
+        slaves[slaveConfig.UnitID] = slave
+    }
+
+    return &Server{
+        Host:      host,
+        Port:      port,
+        ByteOrder: byteOrder,
+        WordOrder: wordOrder,
+        Slaves:    slaves,
+    }, nil
 }
 
 func (s *Server) AddSlave(unitID byte) {
