@@ -3,27 +3,17 @@ package server
 import (
 	"encoding/binary"
 	"fmt"
-	"github.com/ulfaric/gomodbus"
-	"gopkg.in/yaml.v3"
 	"log"
 	"net"
 	"os"
 	"sync"
 	"time"
+
+	"github.com/ulfaric/gomodbus"
+	"gopkg.in/yaml.v3"
 )
 
-type Slave struct {
-	Coils                        [65535]bool
-	LegalCoilsAddress            [65535]bool
-	DiscreteInputs               [65535]bool
-	LegalDiscreteInputsAddress   [65535]bool
-	HoldingRegisters             [65535]uint16
-	LegalHoldingRegistersAddress [65535]bool
-	InputRegisters               [65535]uint16
-	LegalInputRegistersAddress   [65535]bool
-}
-
-type Server struct {
+type TCPServer struct {
 	Host      string
 	Port      int
 	ByteOrder string
@@ -32,7 +22,7 @@ type Server struct {
 	mu        sync.Mutex
 }
 
-type Config struct {
+type TCPConfig struct {
 	Host      string `yaml:"host"`
 	Port      int    `yaml:"port"`
 	ByteOrder string `yaml:"byteOrder"`
@@ -58,74 +48,74 @@ type Config struct {
 	} `yaml:"slaves"`
 }
 
-func NewServer(host, byteOrder, wordOrder string, port int) (*Server, error) {
-    // read config file
-    data, err := os.ReadFile("config.yaml")
-    if err != nil {
-        log.Printf("Failed to read config file: %v", err)
-    }
+func NewTCPServer(host, byteOrder, wordOrder string, port int) (*TCPServer, error) {
+	// read config file
+	data, err := os.ReadFile("config.yaml")
+	if err != nil {
+		log.Printf("Failed to read config file: %v", err)
+	}
 
-    // parse config file
-    var config Config
-    err = yaml.Unmarshal(data, &config)
-    if err != nil {
-        log.Printf("Failed to parse config file: %v", err)
-    }
+	// parse config file
+	var config TCPConfig
+	err = yaml.Unmarshal(data, &config)
+	if err != nil {
+		log.Printf("Failed to parse config file: %v", err)
+	}
 
-    if config.ByteOrder != gomodbus.BigEndian && config.ByteOrder != gomodbus.LittleEndian {
-        return nil, fmt.Errorf("invalid byte order: %s", config.ByteOrder)
-    }
-    if config.WordOrder != gomodbus.BigEndian && config.WordOrder != gomodbus.LittleEndian {
-        return nil, fmt.Errorf("invalid word order: %s", config.WordOrder)
-    }
+	if config.ByteOrder != gomodbus.BigEndian && config.ByteOrder != gomodbus.LittleEndian {
+		return nil, fmt.Errorf("invalid byte order: %s", config.ByteOrder)
+	}
+	if config.WordOrder != gomodbus.BigEndian && config.WordOrder != gomodbus.LittleEndian {
+		return nil, fmt.Errorf("invalid word order: %s", config.WordOrder)
+	}
 
-    slaves := make(map[byte]*Slave)
-    for _, slaveConfig := range config.Slaves {
-        slave := &Slave{}
+	slaves := make(map[byte]*Slave)
+	for _, slaveConfig := range config.Slaves {
+		slave := &Slave{}
 
-        // Set coils and their legal addresses
-        for _, coil := range slaveConfig.Coils {
-            slave.Coils[coil.Address] = coil.Value
-            slave.LegalCoilsAddress[coil.Address] = true
-        }
+		// Set coils and their legal addresses
+		for _, coil := range slaveConfig.Coils {
+			slave.Coils[coil.Address] = coil.Value
+			slave.LegalCoilsAddress[coil.Address] = true
+		}
 
-        // Set discrete inputs and their legal addresses
-        for _, input := range slaveConfig.DiscreteInputs {
-            slave.DiscreteInputs[input.Address] = input.Value
-            slave.LegalDiscreteInputsAddress[input.Address] = true
-        }
+		// Set discrete inputs and their legal addresses
+		for _, input := range slaveConfig.DiscreteInputs {
+			slave.DiscreteInputs[input.Address] = input.Value
+			slave.LegalDiscreteInputsAddress[input.Address] = true
+		}
 
-        // Set holding registers and their legal addresses
-        for _, register := range slaveConfig.HoldingRegisters {
-            slave.HoldingRegisters[register.Address] = register.Value
-            slave.LegalHoldingRegistersAddress[register.Address] = true
-        }
+		// Set holding registers and their legal addresses
+		for _, register := range slaveConfig.HoldingRegisters {
+			slave.HoldingRegisters[register.Address] = register.Value
+			slave.LegalHoldingRegistersAddress[register.Address] = true
+		}
 
-        // Set input registers and their legal addresses
-        for _, register := range slaveConfig.InputRegisters {
-            slave.InputRegisters[register.Address] = register.Value
-            slave.LegalInputRegistersAddress[register.Address] = true
-        }
+		// Set input registers and their legal addresses
+		for _, register := range slaveConfig.InputRegisters {
+			slave.InputRegisters[register.Address] = register.Value
+			slave.LegalInputRegistersAddress[register.Address] = true
+		}
 
-        slaves[slaveConfig.UnitID] = slave
-    }
+		slaves[slaveConfig.UnitID] = slave
+	}
 
-    return &Server{
-        Host:      host,
-        Port:      port,
-        ByteOrder: byteOrder,
-        WordOrder: wordOrder,
-        Slaves:    slaves,
-    }, nil
+	return &TCPServer{
+		Host:      host,
+		Port:      port,
+		ByteOrder: byteOrder,
+		WordOrder: wordOrder,
+		Slaves:    slaves,
+	}, nil
 }
 
-func (s *Server) AddSlave(unitID byte) {
+func (s *TCPServer) AddSlave(unitID byte) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.Slaves[unitID] = &Slave{}
 }
 
-func (s *Server) Start() error {
+func (s *TCPServer) Start() error {
 	addr := fmt.Sprintf("%s:%d", s.Host, s.Port)
 	listener, err := net.Listen("tcp", addr)
 	if err != nil {
@@ -144,7 +134,7 @@ func (s *Server) Start() error {
 	}
 }
 
-func (s *Server) handleConnection(conn net.Conn) {
+func (s *TCPServer) handleConnection(conn net.Conn) {
 	defer conn.Close()
 
 	buffer := make([]byte, 512)
@@ -171,7 +161,7 @@ func (s *Server) handleConnection(conn net.Conn) {
 	}
 }
 
-func (s *Server) getSlave(unitID byte) (*Slave, error) {
+func (s *TCPServer) getSlave(unitID byte) (*Slave, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	slave, exists := s.Slaves[unitID]
@@ -181,7 +171,7 @@ func (s *Server) getSlave(unitID byte) (*Slave, error) {
 	return slave, nil
 }
 
-func (s *Server) processRequest(request []byte) ([]byte, error) {
+func (s *TCPServer) processRequest(request []byte) ([]byte, error) {
 	if len(request) < 8 {
 		return s.exceptionResponse(request, 0x03), nil // Illegal Data Value
 	}
@@ -228,7 +218,7 @@ func (s *Server) processRequest(request []byte) ([]byte, error) {
 	return response, err
 }
 
-func (s *Server) readCoils(slave *Slave, unitID byte, transactionID, protocolID, data, request []byte) ([]byte, error) {
+func (s *TCPServer) readCoils(slave *Slave, unitID byte, transactionID, protocolID, data, request []byte) ([]byte, error) {
 	if len(data) < 4 {
 		return s.exceptionResponse(request, 0x03), nil // Illegal Data Value
 	}
@@ -262,7 +252,7 @@ func (s *Server) readCoils(slave *Slave, unitID byte, transactionID, protocolID,
 	return response, nil
 }
 
-func (s *Server) readDiscreteInputs(slave *Slave, unitID byte, transactionID, protocolID, data, request []byte) ([]byte, error) {
+func (s *TCPServer) readDiscreteInputs(slave *Slave, unitID byte, transactionID, protocolID, data, request []byte) ([]byte, error) {
 	if len(data) < 4 {
 		return s.exceptionResponse(request, 0x03), nil // Illegal Data Value
 	}
@@ -296,7 +286,7 @@ func (s *Server) readDiscreteInputs(slave *Slave, unitID byte, transactionID, pr
 	return response, nil
 }
 
-func (s *Server) readHoldingRegisters(slave *Slave, unitID byte, transactionID, protocolID, data, request []byte) ([]byte, error) {
+func (s *TCPServer) readHoldingRegisters(slave *Slave, unitID byte, transactionID, protocolID, data, request []byte) ([]byte, error) {
 	if len(data) < 4 {
 		return s.exceptionResponse(request, 0x03), nil // Illegal Data Value
 	}
@@ -328,7 +318,7 @@ func (s *Server) readHoldingRegisters(slave *Slave, unitID byte, transactionID, 
 	return response, nil
 }
 
-func (s *Server) readInputRegisters(slave *Slave, unitID byte, transactionID, protocolID, data, request []byte) ([]byte, error) {
+func (s *TCPServer) readInputRegisters(slave *Slave, unitID byte, transactionID, protocolID, data, request []byte) ([]byte, error) {
 	if len(data) < 4 {
 		return s.exceptionResponse(request, 0x03), nil // Illegal Data Value
 	}
@@ -360,7 +350,7 @@ func (s *Server) readInputRegisters(slave *Slave, unitID byte, transactionID, pr
 	return response, nil
 }
 
-func (s *Server) writeSingleCoil(slave *Slave, unitID byte, transactionID, protocolID, data, request []byte) ([]byte, error) {
+func (s *TCPServer) writeSingleCoil(slave *Slave, unitID byte, transactionID, protocolID, data, request []byte) ([]byte, error) {
 	if len(data) < 4 {
 		return s.exceptionResponse(request, 0x03), nil // Illegal Data Value
 	}
@@ -391,7 +381,7 @@ func (s *Server) writeSingleCoil(slave *Slave, unitID byte, transactionID, proto
 	return response, nil
 }
 
-func (s *Server) writeMultipleCoils(slave *Slave, unitID byte, transactionID, protocolID, data, request []byte) ([]byte, error) {
+func (s *TCPServer) writeMultipleCoils(slave *Slave, unitID byte, transactionID, protocolID, data, request []byte) ([]byte, error) {
 	if len(data) < 5 {
 		return s.exceptionResponse(request, 0x03), nil // Illegal Data Value
 	}
@@ -426,7 +416,7 @@ func (s *Server) writeMultipleCoils(slave *Slave, unitID byte, transactionID, pr
 	return response, nil
 }
 
-func (s *Server) writeSingleRegister(slave *Slave, unitID byte, transactionID, protocolID, data, request []byte) ([]byte, error) {
+func (s *TCPServer) writeSingleRegister(slave *Slave, unitID byte, transactionID, protocolID, data, request []byte) ([]byte, error) {
 	if len(data) < 4 {
 		return s.exceptionResponse(request, 0x03), nil // Illegal Data Value
 	}
@@ -451,7 +441,7 @@ func (s *Server) writeSingleRegister(slave *Slave, unitID byte, transactionID, p
 	return response, nil
 }
 
-func (s *Server) writeMultipleRegisters(slave *Slave, unitID byte, transactionID, protocolID, data, request []byte) ([]byte, error) {
+func (s *TCPServer) writeMultipleRegisters(slave *Slave, unitID byte, transactionID, protocolID, data, request []byte) ([]byte, error) {
 	if len(data) < 5 {
 		return s.exceptionResponse(request, 0x03), nil // Illegal Data Value
 	}
@@ -483,7 +473,7 @@ func (s *Server) writeMultipleRegisters(slave *Slave, unitID byte, transactionID
 	return response, nil
 }
 
-func (s *Server) exceptionResponse(request []byte, exceptionCode byte) []byte {
+func (s *TCPServer) exceptionResponse(request []byte, exceptionCode byte) []byte {
 	transactionID := request[0:2]
 	protocolID := request[2:4]
 	unitID := request[6]

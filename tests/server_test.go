@@ -3,14 +3,15 @@ package tests
 import (
 	"testing"
 	"time"
+
 	"github.com/ulfaric/gomodbus"
 	"github.com/ulfaric/gomodbus/client"
 	"github.com/ulfaric/gomodbus/server"
 )
 
 // Start a simple Modbus server with legal addresses set
-func startModbusServer(t *testing.T) *server.Server {
-	s := server.Server{
+func startModbusServer(t *testing.T) *server.TCPServer {
+	s := server.TCPServer{
 		Host:      "127.0.0.1",
 		Port:      502,
 		ByteOrder: gomodbus.BigEndian,
