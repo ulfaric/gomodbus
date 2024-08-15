@@ -5,6 +5,9 @@ import (
 	"math"
 )
 
+type PDU interface {
+	ToBytes() []byte
+}
 
 func CalculateADULength(functionCode byte, quantity int) (int, error) {
 	var pduLength int

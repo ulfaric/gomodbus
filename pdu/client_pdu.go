@@ -3,72 +3,70 @@ package pdu
 import (
 	"bytes"
 	"encoding/binary"
+	"fmt"
 
 	"github.com/ulfaric/gomodbus"
 )
 
 type PDU_Read struct {
 	FunctionCode    byte
-	startingAddress uint16
-	quantity        uint16
+	StartingAddress uint16
+	Quantity        uint16
 }
 
 func New_PDU_ReadCoils(startingAddress, quantity uint16) *PDU_Read {
 	return &PDU_Read{
 		FunctionCode:    gomodbus.ReadCoil,
-		startingAddress: startingAddress,
-		quantity:        quantity,
+		StartingAddress: startingAddress,
+		Quantity:        quantity,
 	}
 }
 
 func New_PDU_ReadDiscreteInputs(startingAddress, quantity uint16) *PDU_Read {
 	return &PDU_Read{
 		FunctionCode:    gomodbus.ReadDiscreteInput,
-		startingAddress: startingAddress,
-		quantity:        quantity,
+		StartingAddress: startingAddress,
+		Quantity:        quantity,
 	}
 }
 
 func New_PDU_ReadHoldingRegisters(startingAddress, quantity uint16) *PDU_Read {
 	return &PDU_Read{
 		FunctionCode:    gomodbus.ReadHoldingRegister,
-		startingAddress: startingAddress,
-		quantity:        quantity,
+		StartingAddress: startingAddress,
+		Quantity:        quantity,
 	}
 }
 
 func New_PDU_ReadInputRegisters(startingAddress, quantity uint16) *PDU_Read {
 	return &PDU_Read{
 		FunctionCode:    gomodbus.ReadInputRegister,
-		startingAddress: startingAddress,
-		quantity:        quantity,
+		StartingAddress: startingAddress,
+		Quantity:        quantity,
 	}
 }
 
 func (pdu *PDU_Read) ToBytes() []byte {
 	buffer := new(bytes.Buffer)
 	buffer.WriteByte(byte(pdu.FunctionCode))
-	binary.Write(buffer, binary.BigEndian, pdu.startingAddress)
-	binary.Write(buffer, binary.BigEndian, pdu.quantity)
+	binary.Write(buffer, binary.BigEndian, pdu.StartingAddress)
+	binary.Write(buffer, binary.BigEndian, pdu.Quantity)
 	return buffer.Bytes()
 }
 
-func (pdu *PDU_Read) FromBytes(data []byte) {
+func (pdu *PDU_Read) FromBytes(data []byte) error {
+	if len(data) < 5 {
+		return fmt.Errorf("insufficient data to parse PDU_Read")
+	}
 	buffer := bytes.NewBuffer(data)
 	functionCode, err := buffer.ReadByte()
 	if err != nil {
-		panic(err)
-	}
-	if functionCode != gomodbus.ReadCoil {
-		panic("Invalid function code")
+		return err
 	}
 	pdu.FunctionCode = functionCode
-	binary.Read(buffer, binary.BigEndian, &pdu.startingAddress)
-	binary.Read(buffer, binary.BigEndian, &pdu.quantity)
-}
-
-func (pdu *PDU_Read) Validate(data []byte) bool {
-	return len(data) == 5
+	binary.Read(buffer, binary.BigEndian, &pdu.StartingAddress)
+	binary.Read(buffer, binary.BigEndian, &pdu.Quantity)
+	return nil
 }
 
 type PDU_WriteSingleCoil struct {
@@ -77,7 +75,6 @@ type PDU_WriteSingleCoil struct {
 	OutputValue     uint16
 }
 
-// New_PDU_WriteSingleCoil creates a new PDU_WriteSingleCoil
 func New_PDU_WriteSingleCoil(outputAddress uint16, value bool) *PDU_WriteSingleCoil {
 	var outputValue uint16
 	if value {
@@ -93,16 +90,27 @@ func New_PDU_WriteSingleCoil(outputAddress uint16, value bool) *PDU_WriteSingleC
 	}
 }
 
-// ToBytes converts the PDU to a byte slice
 func (pdu *PDU_WriteSingleCoil) ToBytes() []byte {
 	buffer := new(bytes.Buffer)
-
-	// Write the PDU fields to the buffer
 	buffer.WriteByte(pdu.FunctionCode)
 	binary.Write(buffer, binary.BigEndian, pdu.OutputAddress)
 	binary.Write(buffer, binary.BigEndian, pdu.OutputValue)
-
 	return buffer.Bytes()
+}
+
+func (pdu *PDU_WriteSingleCoil) FromBytes(data []byte) error {
+	if len(data) < 5 {
+		return fmt.Errorf("insufficient data to parse PDU_WriteSingleCoil")
+	}
+	buffer := bytes.NewBuffer(data)
+	functionCode, err := buffer.ReadByte()
+	if err != nil {
+		return err
+	}
+	pdu.FunctionCode = functionCode
+	binary.Read(buffer, binary.BigEndian, &pdu.OutputAddress)
+	binary.Read(buffer, binary.BigEndian, &pdu.OutputValue)
+	return nil
 }
 
 type PDU_WriteMultipleCoils struct {
@@ -138,25 +146,41 @@ func New_PDU_WriteMultipleCoils(startingAddress uint16, values []bool) *PDU_Writ
 
 func (pdu *PDU_WriteMultipleCoils) ToBytes() []byte {
 	buffer := new(bytes.Buffer)
-
-	// Write the PDU fields to the buffer
 	buffer.WriteByte(byte(pdu.FunctionCode))
 	binary.Write(buffer, binary.BigEndian, pdu.StartingAddress)
 	binary.Write(buffer, binary.BigEndian, pdu.QuantityOfOutputs)
 	buffer.WriteByte(pdu.ByteCount)
 	buffer.Write(pdu.OutputValues)
-
 	return buffer.Bytes()
 }
 
-// PDU_WriteSingleRegister represents the PDU for the Write Single Register function
+func (pdu *PDU_WriteMultipleCoils) FromBytes(data []byte) error {
+	if len(data) < 5 {
+		return fmt.Errorf("insufficient data to parse PDU_WriteMultipleCoils")
+	}
+	buffer := bytes.NewBuffer(data)
+	functionCode, err := buffer.ReadByte()
+	if err != nil {
+		return err
+	}
+	pdu.FunctionCode = functionCode
+	binary.Read(buffer, binary.BigEndian, &pdu.StartingAddress)
+	binary.Read(buffer, binary.BigEndian, &pdu.QuantityOfOutputs)
+	byteCount, err := buffer.ReadByte()
+	if err != nil {
+		return err
+	}
+	pdu.ByteCount = byteCount
+	pdu.OutputValues = buffer.Bytes()
+	return nil
+}
+
 type PDU_WriteSingleRegister struct {
 	FunctionCode    byte
 	RegisterAddress uint16
 	RegisterValue   uint16
 }
 
-// New_PDU_WriteSingleRegister creates a new PDU_WriteSingleRegister
 func New_PDU_WriteSingleRegister(registerAddress uint16, registerValue uint16) *PDU_WriteSingleRegister {
 	return &PDU_WriteSingleRegister{
 		FunctionCode:    gomodbus.WriteSingleRegister,
@@ -165,19 +189,29 @@ func New_PDU_WriteSingleRegister(registerAddress uint16, registerValue uint16) *
 	}
 }
 
-// ToBytes converts the PDU to a byte slice
 func (pdu *PDU_WriteSingleRegister) ToBytes() []byte {
 	buffer := new(bytes.Buffer)
-
-	// Write the PDU fields to the buffer
 	buffer.WriteByte(pdu.FunctionCode)
 	binary.Write(buffer, binary.BigEndian, pdu.RegisterAddress)
 	binary.Write(buffer, binary.BigEndian, pdu.RegisterValue)
-
 	return buffer.Bytes()
 }
 
-// PDU_WriteMultipleRegisters represents the PDU for the Write Multiple Registers function
+func (pdu *PDU_WriteSingleRegister) FromBytes(data []byte) error {
+	if len(data) < 5 {
+		return fmt.Errorf("insufficient data to parse PDU_WriteSingleRegister")
+	}
+	buffer := bytes.NewBuffer(data)
+	functionCode, err := buffer.ReadByte()
+	if err != nil {
+		return err
+	}
+	pdu.FunctionCode = functionCode
+	binary.Read(buffer, binary.BigEndian, &pdu.RegisterAddress)
+	binary.Read(buffer, binary.BigEndian, &pdu.RegisterValue)
+	return nil
+}
+
 type PDU_WriteMultipleRegisters struct {
 	FunctionCode      byte
 	StartingAddress   uint16
@@ -186,7 +220,6 @@ type PDU_WriteMultipleRegisters struct {
 	OutputValues      []byte
 }
 
-// New_PDU_WriteMultipleRegisters creates a new PDU_WriteMultipleRegisters
 func New_PDU_WriteMultipleRegisters(startingAddress uint16, values []uint16) *PDU_WriteMultipleRegisters {
 	quantityOfOutputs := uint16(len(values))
 	byteCount := byte(quantityOfOutputs * 2) // Each register is 2 bytes
@@ -208,16 +241,33 @@ func New_PDU_WriteMultipleRegisters(startingAddress uint16, values []uint16) *PD
 	}
 }
 
-// ToBytes converts the PDU to a byte slice
 func (pdu *PDU_WriteMultipleRegisters) ToBytes() []byte {
 	buffer := new(bytes.Buffer)
-
-	// Write the PDU fields to the buffer
 	buffer.WriteByte(pdu.FunctionCode)
 	binary.Write(buffer, binary.BigEndian, pdu.StartingAddress)
 	binary.Write(buffer, binary.BigEndian, pdu.QuantityOfOutputs)
 	buffer.WriteByte(pdu.ByteCount)
 	buffer.Write(pdu.OutputValues)
-
 	return buffer.Bytes()
+}
+
+func (pdu *PDU_WriteMultipleRegisters) FromBytes(data []byte) error {
+	if len(data) < 5 {
+		return fmt.Errorf("insufficient data to parse PDU_WriteMultipleRegisters")
+	}
+	buffer := bytes.NewBuffer(data)
+	functionCode, err := buffer.ReadByte()
+	if err != nil {
+		return err
+	}
+	pdu.FunctionCode = functionCode
+	binary.Read(buffer, binary.BigEndian, &pdu.StartingAddress)
+	binary.Read(buffer, binary.BigEndian, &pdu.QuantityOfOutputs)
+	byteCount, err := buffer.ReadByte()
+	if err != nil {
+		return err
+	}
+	pdu.ByteCount = byteCount
+	pdu.OutputValues = buffer.Bytes()
+	return nil
 }

@@ -42,7 +42,7 @@ func (client *TCPClient) Close() error {
 
 func (client *TCPClient) ReadCoils(transactionID, startingAddress, quantity, unitID int) ([]bool, error) {
 	pdu := pdu.New_PDU_ReadCoils(uint16(startingAddress), uint16(quantity))
-	adu := adu.New_TCP_ADU(uint16(transactionID), byte(unitID), pdu.ToBytes())
+	adu := adu.NewTCPADU(uint16(transactionID), byte(unitID), pdu.ToBytes())
 	adu_bytes := adu.ToBytes()
 	_, err := client.conn.Write(adu_bytes)
 	if err != nil {
@@ -92,7 +92,7 @@ func (client *TCPClient) ReadCoils(transactionID, startingAddress, quantity, uni
 
 func (client *TCPClient) ReadDiscreteInputs(transactionID, startingAddress, quantity, unitID int) ([]bool, error) {
 	pdu := pdu.New_PDU_ReadDiscreteInputs(uint16(startingAddress), uint16(quantity))
-	adu := adu.New_TCP_ADU(uint16(transactionID), byte(unitID), pdu.ToBytes())
+	adu := adu.NewTCPADU(uint16(transactionID), byte(unitID), pdu.ToBytes())
 	adu_bytes := adu.ToBytes()
 	_, err := client.conn.Write(adu_bytes)
 	if err != nil {
@@ -142,7 +142,7 @@ func (client *TCPClient) ReadDiscreteInputs(transactionID, startingAddress, quan
 
 func (client *TCPClient) ReadHoldingRegisters(transactionID, startingAddress, quantity, unitID int) ([]uint16, error) {
 	pdu := pdu.New_PDU_ReadHoldingRegisters(uint16(startingAddress), uint16(quantity))
-	adu := adu.New_TCP_ADU(uint16(transactionID), byte(unitID), pdu.ToBytes())
+	adu := adu.NewTCPADU(uint16(transactionID), byte(unitID), pdu.ToBytes())
 	adu_bytes := adu.ToBytes()
 	_, err := client.conn.Write(adu_bytes)
 	if err != nil {
@@ -191,7 +191,7 @@ func (client *TCPClient) ReadHoldingRegisters(transactionID, startingAddress, qu
 
 func (client *TCPClient) ReadInputRegisters(transactionID, startingAddress, quantity, unitID int) ([]uint16, error) {
 	pdu := pdu.New_PDU_ReadInputRegisters(uint16(startingAddress), uint16(quantity))
-	adu := adu.New_TCP_ADU(uint16(transactionID), byte(unitID), pdu.ToBytes())
+	adu := adu.NewTCPADU(uint16(transactionID), byte(unitID), pdu.ToBytes())
 	adu_bytes := adu.ToBytes()
 	_, err := client.conn.Write(adu_bytes)
 	if err != nil {
@@ -240,7 +240,7 @@ func (client *TCPClient) ReadInputRegisters(transactionID, startingAddress, quan
 
 func (client *TCPClient) WriteSingleCoil(transactionID, address, unitID int, value bool) error {
 	pdu := pdu.New_PDU_WriteSingleCoil(uint16(address), value)
-	adu := adu.New_TCP_ADU(uint16(transactionID), byte(unitID), pdu.ToBytes())
+	adu := adu.NewTCPADU(uint16(transactionID), byte(unitID), pdu.ToBytes())
 	adu_bytes := adu.ToBytes()
 	_, err := client.conn.Write(adu_bytes)
 	if err != nil {
@@ -282,7 +282,7 @@ func (client *TCPClient) WriteSingleCoil(transactionID, address, unitID int, val
 
 func (client *TCPClient) WriteSingleRegister(transactionID, address, unitID int, value uint16) error {
 	pdu := pdu.New_PDU_WriteSingleRegister(uint16(address), value)
-	adu := adu.New_TCP_ADU(uint16(transactionID), byte(unitID), pdu.ToBytes())
+	adu := adu.NewTCPADU(uint16(transactionID), byte(unitID), pdu.ToBytes())
 	adu_bytes := adu.ToBytes()
 	_, err := client.conn.Write(adu_bytes)
 	if err != nil {
@@ -325,7 +325,7 @@ func (client *TCPClient) WriteSingleRegister(transactionID, address, unitID int,
 
 func (client *TCPClient) WriteMultipleCoils(transactionID, startingAddress, unitID int, values []bool) error {
 	pdu := pdu.New_PDU_WriteMultipleCoils(uint16(startingAddress), values)
-	adu := adu.New_TCP_ADU(uint16(transactionID), byte(unitID), pdu.ToBytes())
+	adu := adu.NewTCPADU(uint16(transactionID), byte(unitID), pdu.ToBytes())
 	adu_bytes := adu.ToBytes()
 	_, err := client.conn.Write(adu_bytes)
 	if err != nil {
@@ -367,7 +367,7 @@ func (client *TCPClient) WriteMultipleCoils(transactionID, startingAddress, unit
 
 func (client *TCPClient) WriteMultipleRegisters(transactionID, startingAddress, unitID int, values []uint16) error {
 	pdu := pdu.New_PDU_WriteMultipleRegisters(uint16(startingAddress), values)
-	adu := adu.New_TCP_ADU(uint16(transactionID), byte(unitID), pdu.ToBytes())
+	adu := adu.NewTCPADU(uint16(transactionID), byte(unitID), pdu.ToBytes())
 	adu_bytes := adu.ToBytes()
 	_, err := client.conn.Write(adu_bytes)
 	if err != nil {
