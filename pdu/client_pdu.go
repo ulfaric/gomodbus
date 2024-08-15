@@ -3,6 +3,7 @@ package pdu
 import (
 	"bytes"
 	"encoding/binary"
+
 	"github.com/ulfaric/gomodbus"
 )
 

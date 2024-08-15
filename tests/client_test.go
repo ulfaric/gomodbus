@@ -119,7 +119,7 @@ func TestClientHoldingRegisters(t *testing.T) {
 	quantity = 4
 	value_64 := int64(-10000)
 	t.Logf("Wrting value: %v as 64 bits into 4 registers", value_64)
-	values := client.EncodeModbusRegisters(value_64, gomodbus.BigEndian, gomodbus.BigEndian)
+	values := gomodbus.EncodeModbusRegisters(value_64, gomodbus.BigEndian, gomodbus.BigEndian)
 	t.Logf("Writing multiple registers at address %v - %v : %v", startingAddress, startingAddress+quantity, values)
 	err = c.WriteMultipleRegisters(transactionID, startingAddress, unitID, values)
 	if err != nil {
@@ -133,7 +133,7 @@ func TestClientHoldingRegisters(t *testing.T) {
 		t.Errorf("Expected %v, but got %v", values, registers)
 	}
 	t.Logf("Holding registers at address %v - %v : %v", startingAddress, startingAddress+quantity, registers)
-	decoded_value := int64(client.DecodeModbusRegisters(registers, gomodbus.BigEndian, gomodbus.BigEndian).(uint64))
+	decoded_value := int64(gomodbus.DecodeModbusRegisters(registers, gomodbus.BigEndian, gomodbus.BigEndian).(uint64))
 	if !reflect.DeepEqual(decoded_value, value_64) {
 		t.Errorf("Expected %v, but got %v", value_64, decoded_value)
 	}
@@ -143,7 +143,7 @@ func TestClientHoldingRegisters(t *testing.T) {
 	quantity = 2
 	value_32 := float32(22.33)
 	t.Logf("Wrting value: %v as 32 bits into 2 registers", value_32)
-	values = client.EncodeModbusRegisters(value_32, gomodbus.BigEndian, gomodbus.BigEndian)
+	values = gomodbus.EncodeModbusRegisters(value_32, gomodbus.BigEndian, gomodbus.BigEndian)
 	t.Logf("Writing multiple registers at address %v - %v : %v", startingAddress, startingAddress+quantity, values)
 	err = c.WriteMultipleRegisters(transactionID, startingAddress, unitID, values)
 	if err != nil {
@@ -158,7 +158,7 @@ func TestClientHoldingRegisters(t *testing.T) {
 		t.Errorf("Expected %v, but got %v", values, registers)
 	}
 	t.Logf("Holding registers at address %v - %v : %v", startingAddress, startingAddress+quantity, registers)
-	decoded_value_32 := math.Float32frombits(client.DecodeModbusRegisters(registers, gomodbus.BigEndian, gomodbus.BigEndian).(uint32))
+	decoded_value_32 := math.Float32frombits(gomodbus.DecodeModbusRegisters(registers, gomodbus.BigEndian, gomodbus.BigEndian).(uint32))
 	if !reflect.DeepEqual(decoded_value_32,value_32) {
 		t.Errorf("Expected %v, but got %v", value_32, decoded_value_32)
 	}
