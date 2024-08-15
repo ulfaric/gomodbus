@@ -1,9 +1,12 @@
 package client
 
 import (
+	"crypto/tls"
+	"crypto/x509"
 	"encoding/binary"
 	"fmt"
 	"net"
+	"os"
 
 	"github.com/ulfaric/gomodbus"
 	"github.com/ulfaric/gomodbus/adu"
@@ -11,10 +14,15 @@ import (
 )
 
 type TCPClient struct {
-	Host string
-	Port int
-	conn net.Conn
+	Host     string
+	Port     int
+	conn     net.Conn
+	UseTLS   bool
+	CertFile string
+	KeyFile  string
+	CAFile   string // New field for custom CA
 }
+
 
 func (client *TCPClient) Connect() error {
 	// Check if the host is a valid IP address
@@ -22,15 +30,63 @@ func (client *TCPClient) Connect() error {
 	if ip == nil {
 		return fmt.Errorf("invalid host IP address")
 	}
-	// establish a connection to the server
+	
 	address := fmt.Sprintf("%s:%d", client.Host, client.Port)
-	conn, err := net.Dial("tcp", address)
-	if err != nil {
-		return err
+	
+	var conn net.Conn
+	var err error
+
+	if client.UseTLS {
+		// Load client TLS certificate and key if provided
+		var cert tls.Certificate
+		if client.CertFile != "" && client.KeyFile != "" {
+			cert, err = tls.LoadX509KeyPair(client.CertFile, client.KeyFile)
+			if err != nil {
+				return fmt.Errorf("failed to load TLS certificate and key: %v", err)
+			}
+		}
+
+		// Configure TLS
+		tlsConfig := &tls.Config{}
+		if client.CertFile != "" && client.KeyFile != "" {
+			tlsConfig.Certificates = []tls.Certificate{cert}
+		}
+
+		if client.CAFile != "" {
+			// Load custom CA
+			caCert, err := os.ReadFile(client.CAFile)
+			if err != nil {
+				return fmt.Errorf("failed to read CA file: %v", err)
+			}
+			caCertPool := x509.NewCertPool()
+			caCertPool.AppendCertsFromPEM(caCert)
+			tlsConfig.RootCAs = caCertPool
+		} else {
+			// Use the system's root CAs for verification
+			rootCAs, err := x509.SystemCertPool()
+			if err != nil {
+				return fmt.Errorf("failed to load system root CAs: %v", err)
+			}
+			tlsConfig.RootCAs = rootCAs
+		}
+
+		// Establish a TLS connection to the server
+		conn, err = tls.Dial("tcp", address, tlsConfig)
+		if err != nil {
+			return fmt.Errorf("failed to connect to %s with TLS: %v", address, err)
+		}
+	} else {
+		// Establish a non-TLS connection to the server
+		conn, err = net.Dial("tcp", address)
+		if err != nil {
+			return fmt.Errorf("failed to connect to %s: %v", address, err)
+		}
 	}
+
 	client.conn = conn
 	return nil
 }
+
 
 func (client *TCPClient) Close() error {
 	if client.conn != nil {

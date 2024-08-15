@@ -1,6 +1,8 @@
 package server
 
 import (
+	"crypto/tls"
+	"crypto/x509"
 	"encoding/binary"
 	"fmt"
 	"log"
@@ -22,14 +24,26 @@ type TCPServer struct {
 	WordOrder string
 	Slaves    map[byte]*Slave
 	mu        sync.Mutex
+
+	UseTLS  bool
+	CertFile string
+	KeyFile  string
+	CAFile   string
 }
+
+
 
 type TCPConfig struct {
 	Host      string `yaml:"host"`
 	Port      int    `yaml:"port"`
 	ByteOrder string `yaml:"byteOrder"`
 	WordOrder string `yaml:"wordOrder"`
-	Slaves    []struct {
+	UseTLS    bool   `yaml:"useTLS"`
+	CertFile  string `yaml:"certFile"`
+	KeyFile   string `yaml:"keyFile"`
+	CAFile    string `yaml:"caFile"` // New field for custom CA
+
+	Slaves []struct {
 		UnitID byte `yaml:"unitID"`
 		Coils  []struct {
 			Address uint16 `yaml:"address"`
@@ -49,6 +63,8 @@ type TCPConfig struct {
 		} `yaml:"inputRegisters"`
 	} `yaml:"slaves"`
 }
+
+
 
 func NewTCPServer(host, byteOrder, wordOrder string, port int) (*TCPServer, error) {
 	// read config file
@@ -108,8 +124,14 @@ func NewTCPServer(host, byteOrder, wordOrder string, port int) (*TCPServer, erro
 		ByteOrder: byteOrder,
 		WordOrder: wordOrder,
 		Slaves:    slaves,
+		UseTLS:    config.UseTLS,
+		CertFile:  config.CertFile,
+		KeyFile:   config.KeyFile,
+		CAFile:    config.CAFile, // Load the CA file from config
 	}, nil
 }
+
+
 
 func (s *TCPServer) AddSlave(unitID byte) {
 	s.mu.Lock()
@@ -119,13 +141,52 @@ func (s *TCPServer) AddSlave(unitID byte) {
 
 func (s *TCPServer) Start() error {
 	addr := fmt.Sprintf("%s:%d", s.Host, s.Port)
-	listener, err := net.Listen("tcp", addr)
-	if err != nil {
-		return fmt.Errorf("failed to listen on %s: %v", addr, err)
+	var listener net.Listener
+	var err error
+
+	if s.UseTLS {
+		// Load server TLS certificate and key
+		cert, err := tls.LoadX509KeyPair(s.CertFile, s.KeyFile)
+		if err != nil {
+			return fmt.Errorf("failed to load TLS certificate and key: %v", err)
+		}
+
+		// Load custom CA if provided
+		var tlsConfig *tls.Config
+		if s.CAFile != "" {
+			caCert, err := os.ReadFile(s.CAFile)
+			if err != nil {
+				return fmt.Errorf("failed to read CA file: %v", err)
+			}
+			caCertPool := x509.NewCertPool()
+			caCertPool.AppendCertsFromPEM(caCert)
+
+			tlsConfig = &tls.Config{
+				Certificates: []tls.Certificate{cert},
+				ClientCAs:    caCertPool,
+				ClientAuth:   tls.RequireAndVerifyClientCert,
+			}
+		} else {
+			tlsConfig = &tls.Config{
+				Certificates: []tls.Certificate{cert},
+			}
+		}
+
+		// Start listener with TLS
+		listener, err = tls.Listen("tcp", addr, tlsConfig)
+		if err != nil {
+			return fmt.Errorf("failed to listen on %s with TLS: %v", addr, err)
+		}
+		log.Printf("Modbus server started with TLS on %s", addr)
+	} else {
+		listener, err = net.Listen("tcp", addr)
+		if err != nil {
+			return fmt.Errorf("failed to listen on %s: %v", addr, err)
+		}
+		log.Printf("Modbus server started on %s", addr)
 	}
 	defer listener.Close()
 
-	log.Printf("Modbus server started on %s", addr)
 	for {
 		conn, err := listener.Accept()
 		if err != nil {
@@ -135,6 +196,7 @@ func (s *TCPServer) Start() error {
 		go s.handleConnection(conn)
 	}
 }
+
 
 func (s *TCPServer) handleConnection(conn net.Conn) {
 	defer conn.Close()
