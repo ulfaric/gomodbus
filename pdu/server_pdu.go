@@ -3,6 +3,7 @@ package pdu
 import (
 	"bytes"
 	"encoding/binary"
+	"fmt"
 )
 
 type PDU_ReadResponse struct {
@@ -27,6 +28,28 @@ func (pdu *PDU_ReadResponse) ToBytes() []byte {
 	return buffer.Bytes()
 }
 
+func (pdu *PDU_ReadResponse) FromBytes(data []byte) error {
+	buffer := bytes.NewBuffer(data)
+	var err error
+
+	pdu.FunctionCode, err = buffer.ReadByte()
+	if err != nil {
+		return fmt.Errorf("failed to read FunctionCode: %v", err)
+	}
+
+	pdu.ByteCount, err = buffer.ReadByte()
+	if err != nil {
+		return fmt.Errorf("failed to read ByteCount: %v", err)
+	}
+
+	pdu.Data = buffer.Bytes()
+	if len(pdu.Data) != int(pdu.ByteCount) {
+		return fmt.Errorf("data length mismatch, expected %d, got %d", pdu.ByteCount, len(pdu.Data))
+	}
+
+	return nil
+}
+
 type PDU_WriteSingleResponse struct {
 	FunctionCode  byte
 	OutputAddress uint16
@@ -49,6 +72,28 @@ func (pdu *PDU_WriteSingleResponse) ToBytes() []byte {
 	return buffer.Bytes()
 }
 
+func (pdu *PDU_WriteSingleResponse) FromBytes(data []byte) error {
+	buffer := bytes.NewBuffer(data)
+	var err error
+
+	pdu.FunctionCode, err = buffer.ReadByte()
+	if err != nil {
+		return fmt.Errorf("failed to read FunctionCode: %v", err)
+	}
+
+	err = binary.Read(buffer, binary.BigEndian, &pdu.OutputAddress)
+	if err != nil {
+		return fmt.Errorf("failed to read OutputAddress: %v", err)
+	}
+
+	err = binary.Read(buffer, binary.BigEndian, &pdu.OutputValue)
+	if err != nil {
+		return fmt.Errorf("failed to read OutputValue: %v", err)
+	}
+
+	return nil
+}
+
 type PDU_WriteMultipleResponse struct {
 	FunctionCode    byte
 	StartingAddress uint16
@@ -69,4 +114,26 @@ func (pdu *PDU_WriteMultipleResponse) ToBytes() []byte {
 	binary.Write(buffer, binary.BigEndian, pdu.StartingAddress)
 	binary.Write(buffer, binary.BigEndian, pdu.Quantity)
 	return buffer.Bytes()
+}
+
+func (pdu *PDU_WriteMultipleResponse) FromBytes(data []byte) error {
+	buffer := bytes.NewBuffer(data)
+	var err error
+
+	pdu.FunctionCode, err = buffer.ReadByte()
+	if err != nil {
+		return fmt.Errorf("failed to read FunctionCode: %v", err)
+	}
+
+	err = binary.Read(buffer, binary.BigEndian, &pdu.StartingAddress)
+	if err != nil {
+		return fmt.Errorf("failed to read StartingAddress: %v", err)
+	}
+
+	err = binary.Read(buffer, binary.BigEndian, &pdu.Quantity)
+	if err != nil {
+		return fmt.Errorf("failed to read Quantity: %v", err)
+	}
+
+	return nil
 }

@@ -14,7 +14,7 @@ type PDU_Read struct {
 	Quantity        uint16
 }
 
-func New_PDU_ReadCoils(startingAddress, quantity uint16) *PDU_Read {
+func NewPDUReadCoils(startingAddress, quantity uint16) *PDU_Read {
 	return &PDU_Read{
 		FunctionCode:    gomodbus.ReadCoil,
 		StartingAddress: startingAddress,
@@ -22,7 +22,7 @@ func New_PDU_ReadCoils(startingAddress, quantity uint16) *PDU_Read {
 	}
 }
 
-func New_PDU_ReadDiscreteInputs(startingAddress, quantity uint16) *PDU_Read {
+func NewPDUReadDiscreteInputs(startingAddress, quantity uint16) *PDU_Read {
 	return &PDU_Read{
 		FunctionCode:    gomodbus.ReadDiscreteInput,
 		StartingAddress: startingAddress,
@@ -30,7 +30,7 @@ func New_PDU_ReadDiscreteInputs(startingAddress, quantity uint16) *PDU_Read {
 	}
 }
 
-func New_PDU_ReadHoldingRegisters(startingAddress, quantity uint16) *PDU_Read {
+func NewPDUReadHoldingRegisters(startingAddress, quantity uint16) *PDU_Read {
 	return &PDU_Read{
 		FunctionCode:    gomodbus.ReadHoldingRegister,
 		StartingAddress: startingAddress,
@@ -38,7 +38,7 @@ func New_PDU_ReadHoldingRegisters(startingAddress, quantity uint16) *PDU_Read {
 	}
 }
 
-func New_PDU_ReadInputRegisters(startingAddress, quantity uint16) *PDU_Read {
+func NewPDUReadInputRegisters(startingAddress, quantity uint16) *PDU_Read {
 	return &PDU_Read{
 		FunctionCode:    gomodbus.ReadInputRegister,
 		StartingAddress: startingAddress,
@@ -70,12 +70,12 @@ func (pdu *PDU_Read) FromBytes(data []byte) error {
 }
 
 type PDU_WriteSingleCoil struct {
-	FunctionCode    byte
-	OutputAddress   uint16
-	OutputValue     uint16
+	FunctionCode  byte
+	OutputAddress uint16
+	OutputValue   uint16
 }
 
-func New_PDU_WriteSingleCoil(outputAddress uint16, value bool) *PDU_WriteSingleCoil {
+func NewPDUWriteSingleCoil(outputAddress uint16, value bool) *PDU_WriteSingleCoil {
 	var outputValue uint16
 	if value {
 		outputValue = 0xFF00 // ON
@@ -121,7 +121,7 @@ type PDU_WriteMultipleCoils struct {
 	OutputValues      []byte
 }
 
-func New_PDU_WriteMultipleCoils(startingAddress uint16, values []bool) *PDU_WriteMultipleCoils {
+func NewPDUWriteMultipleCoils(startingAddress uint16, values []bool) *PDU_WriteMultipleCoils {
 	quantityOfOutputs := uint16(len(values))
 	byteCount := (quantityOfOutputs + 7) / 8 // Calculate the number of bytes needed to hold the coil values
 
@@ -181,7 +181,7 @@ type PDU_WriteSingleRegister struct {
 	RegisterValue   uint16
 }
 
-func New_PDU_WriteSingleRegister(registerAddress uint16, registerValue uint16) *PDU_WriteSingleRegister {
+func NewPDUWriteSingleRegister(registerAddress uint16, registerValue uint16) *PDU_WriteSingleRegister {
 	return &PDU_WriteSingleRegister{
 		FunctionCode:    gomodbus.WriteSingleRegister,
 		RegisterAddress: registerAddress,
@@ -220,7 +220,7 @@ type PDU_WriteMultipleRegisters struct {
 	OutputValues      []byte
 }
 
-func New_PDU_WriteMultipleRegisters(startingAddress uint16, values []uint16) *PDU_WriteMultipleRegisters {
+func NewPDUWriteMultipleRegisters(startingAddress uint16, values []uint16) *PDU_WriteMultipleRegisters {
 	quantityOfOutputs := uint16(len(values))
 	byteCount := byte(quantityOfOutputs * 2) // Each register is 2 bytes
 

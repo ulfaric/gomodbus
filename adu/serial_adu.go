@@ -6,14 +6,14 @@ import (
 	"fmt"
 )
 
-type Serial_ADU struct {
+type SerialADU struct {
 	Address byte
 	PDU     []byte
 	CRC     uint16
 }
 
-func New_Serial_ADU(address byte, pdu []byte) *Serial_ADU {
-	adu := &Serial_ADU{
+func NewSerialADU(address byte, pdu []byte) *SerialADU {
+	adu := &SerialADU{
 		Address: address,
 		PDU:     pdu,
 	}
@@ -24,7 +24,7 @@ func New_Serial_ADU(address byte, pdu []byte) *Serial_ADU {
 	return adu
 }
 
-func (adu *Serial_ADU) ToBytes() []byte {
+func (adu *SerialADU) ToBytes() []byte {
 	buffer := new(bytes.Buffer)
 
 	// Write Address
@@ -39,7 +39,7 @@ func (adu *Serial_ADU) ToBytes() []byte {
 	return buffer.Bytes()
 }
 
-func (adu *Serial_ADU) FromBytes(data []byte) error {
+func (adu *SerialADU) FromBytes(data []byte) error {
 	if len(data) < 4 {
 		return fmt.Errorf("invalid ADU: data too short")
 	}

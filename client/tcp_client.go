@@ -1,7 +1,6 @@
 package client
 
 import (
-	"bytes"
 	"encoding/binary"
 	"fmt"
 	"net"
@@ -41,15 +40,18 @@ func (client *TCPClient) Close() error {
 }
 
 func (client *TCPClient) ReadCoils(transactionID, startingAddress, quantity, unitID int) ([]bool, error) {
-	pdu := pdu.New_PDU_ReadCoils(uint16(startingAddress), uint16(quantity))
-	adu := adu.NewTCPADU(uint16(transactionID), byte(unitID), pdu.ToBytes())
-	adu_bytes := adu.ToBytes()
-	_, err := client.conn.Write(adu_bytes)
+	// Create a PDU for the Read Coils request
+	readPDU := pdu.NewPDUReadCoils(uint16(startingAddress), uint16(quantity))
+	tcpADU := adu.NewTCPADU(uint16(transactionID), byte(unitID), readPDU.ToBytes())
+	aduBytes := tcpADU.ToBytes()
+
+	// Send the request
+	_, err := client.conn.Write(aduBytes)
 	if err != nil {
 		return nil, err
 	}
 
-	// Calculate the response length
+	// Calculate the expected response length
 	responseLength, err := gomodbus.CalculateADULength(gomodbus.ReadCoil, quantity)
 	if err != nil {
 		return nil, fmt.Errorf("failed to calculate response length: %v", err)
@@ -68,39 +70,48 @@ func (client *TCPClient) ReadCoils(transactionID, startingAddress, quantity, uni
 		return nil, err
 	}
 
+	// Parse the response ADU
+	responseADU := &adu.TCPADU{}
+	err = responseADU.FromBytes(response)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse response ADU: %v", err)
+	}
+
 	// Verify the function code in the response PDU
-	if response[7] != gomodbus.ReadCoil {
-		return nil, fmt.Errorf("invalid function code in response, expect %x but received %x", gomodbus.ReadCoil, response[7])
+	if responseADU.PDU[0] != gomodbus.ReadCoil {
+		return nil, fmt.Errorf("invalid function code in response, expect %x but received %x", gomodbus.ReadCoil, responseADU.PDU[0])
 	}
 
-	// Get the byte count from the response
-	byteCount := response[8]
-	if int(byteCount) != len(response)-9 {
-		return nil, fmt.Errorf("invalid byte count in response, expect %d but received %d", len(response)-9, byteCount)
-	}
+	// Parse the response PDU
+	readResponsePDU := &pdu.PDU_ReadResponse{}
+	readResponsePDU.FromBytes(responseADU.PDU)
 
-	// Parse the coil status
+	// Parse the coil status from the response PDU
 	coils := make([]bool, quantity)
 	for i := 0; i < quantity; i++ {
-		byteIndex := 9 + i/8
+		byteIndex := i / 8
 		bitIndex := i % 8
-		coils[i] = (response[byteIndex] & (1 << bitIndex)) != 0
+		coils[i] = (readResponsePDU.Data[byteIndex] & (1 << bitIndex)) != 0
 	}
 
 	return coils, nil
 }
 
+
 func (client *TCPClient) ReadDiscreteInputs(transactionID, startingAddress, quantity, unitID int) ([]bool, error) {
-	pdu := pdu.New_PDU_ReadDiscreteInputs(uint16(startingAddress), uint16(quantity))
-	adu := adu.NewTCPADU(uint16(transactionID), byte(unitID), pdu.ToBytes())
-	adu_bytes := adu.ToBytes()
-	_, err := client.conn.Write(adu_bytes)
+	// Create a PDU for the Read Discrete Inputs request
+	readPDU := pdu.NewPDUReadDiscreteInputs(uint16(startingAddress), uint16(quantity))
+	tcpADU := adu.NewTCPADU(uint16(transactionID), byte(unitID), readPDU.ToBytes())
+	aduBytes := tcpADU.ToBytes()
+
+	// Send the request
+	_, err := client.conn.Write(aduBytes)
 	if err != nil {
 		return nil, err
 	}
 
-	// Calculate the response length
-	responseLength, err := gomodbus.CalculateADULength(gomodbus.ReadCoil, quantity)
+	// Calculate the expected response length
+	responseLength, err := gomodbus.CalculateADULength(gomodbus.ReadDiscreteInput, quantity)
 	if err != nil {
 		return nil, fmt.Errorf("failed to calculate response length: %v", err)
 	}
@@ -118,38 +129,47 @@ func (client *TCPClient) ReadDiscreteInputs(transactionID, startingAddress, quan
 		return nil, err
 	}
 
+	// Parse the response ADU
+	responseADU := &adu.TCPADU{}
+	err = responseADU.FromBytes(response)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse response ADU: %v", err)
+	}
+
 	// Verify the function code in the response PDU
-	if response[7] != gomodbus.ReadDiscreteInput {
-		return nil, fmt.Errorf("invalid function code in response, expect %x but received %x", gomodbus.ReadDiscreteInput, response[7])
+	if responseADU.PDU[0] != gomodbus.ReadDiscreteInput {
+		return nil, fmt.Errorf("invalid function code in response, expect %x but received %x", gomodbus.ReadDiscreteInput, responseADU.PDU[0])
 	}
 
-	// Get the byte count from the response
-	byteCount := response[8]
-	if int(byteCount) != len(response)-9 {
-		return nil, fmt.Errorf("invalid byte count in response, expect %d but received %d", len(response)-9, byteCount)
-	}
+	// Parse the response PDU
+	readResponsePDU := &pdu.PDU_ReadResponse{}
+	readResponsePDU.FromBytes(responseADU.PDU)
 
-	// Parse the input status
+	// Parse the input status from the response PDU
 	inputs := make([]bool, quantity)
 	for i := 0; i < quantity; i++ {
-		byteIndex := 9 + i/8
+		byteIndex := i / 8
 		bitIndex := i % 8
-		inputs[i] = (response[byteIndex] & (1 << bitIndex)) != 0
+		inputs[i] = (readResponsePDU.Data[byteIndex] & (1 << bitIndex)) != 0
 	}
 
 	return inputs, nil
 }
 
+
 func (client *TCPClient) ReadHoldingRegisters(transactionID, startingAddress, quantity, unitID int) ([]uint16, error) {
-	pdu := pdu.New_PDU_ReadHoldingRegisters(uint16(startingAddress), uint16(quantity))
-	adu := adu.NewTCPADU(uint16(transactionID), byte(unitID), pdu.ToBytes())
-	adu_bytes := adu.ToBytes()
-	_, err := client.conn.Write(adu_bytes)
+	// Create a PDU for the Read Holding Registers request
+	readPDU := pdu.NewPDUReadHoldingRegisters(uint16(startingAddress), uint16(quantity))
+	tcpADU := adu.NewTCPADU(uint16(transactionID), byte(unitID), readPDU.ToBytes())
+	aduBytes := tcpADU.ToBytes()
+
+	// Send the request
+	_, err := client.conn.Write(aduBytes)
 	if err != nil {
 		return nil, err
 	}
 
-	// Calculate the response length
+	// Calculate the expected response length
 	responseLength, err := gomodbus.CalculateADULength(gomodbus.ReadHoldingRegister, quantity)
 	if err != nil {
 		return nil, fmt.Errorf("failed to calculate response length: %v", err)
@@ -168,37 +188,46 @@ func (client *TCPClient) ReadHoldingRegisters(transactionID, startingAddress, qu
 		return nil, err
 	}
 
+	// Parse the response ADU
+	responseADU := &adu.TCPADU{}
+	err = responseADU.FromBytes(response)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse response ADU: %v", err)
+	}
+
 	// Verify the function code in the response PDU
-	if response[7] != gomodbus.ReadHoldingRegister {
-		return nil, fmt.Errorf("invalid function code in response, expect %x but received %x", gomodbus.ReadHoldingRegister, response[7])
+	if responseADU.PDU[0] != gomodbus.ReadHoldingRegister {
+		return nil, fmt.Errorf("invalid function code in response, expect %x but received %x", gomodbus.ReadHoldingRegister, responseADU.PDU[0])
 	}
 
-	// Get the byte count from the response
-	byteCount := response[8]
-	if int(byteCount) != len(response)-9 {
-		return nil, fmt.Errorf("invalid byte count in response, expect %d but received %d", len(response)-9, byteCount)
-	}
+	// Parse the response PDU
+	readResponsePDU := &pdu.PDU_ReadResponse{}
+	readResponsePDU.FromBytes(responseADU.PDU)
 
-	// Parse the register values
+	// Parse the register values from the response PDU
 	registers := make([]uint16, quantity)
 	for i := 0; i < quantity; i++ {
-		register := binary.BigEndian.Uint16(response[9+i*2 : 9+i*2+2])
+		register := binary.BigEndian.Uint16(readResponsePDU.Data[i*2 : i*2+2])
 		registers[i] = register
 	}
 
 	return registers, nil
 }
 
+
 func (client *TCPClient) ReadInputRegisters(transactionID, startingAddress, quantity, unitID int) ([]uint16, error) {
-	pdu := pdu.New_PDU_ReadInputRegisters(uint16(startingAddress), uint16(quantity))
-	adu := adu.NewTCPADU(uint16(transactionID), byte(unitID), pdu.ToBytes())
-	adu_bytes := adu.ToBytes()
-	_, err := client.conn.Write(adu_bytes)
+	// Create a PDU for the Read Input Registers request
+	readPDU := pdu.NewPDUReadInputRegisters(uint16(startingAddress), uint16(quantity))
+	tcpADU := adu.NewTCPADU(uint16(transactionID), byte(unitID), readPDU.ToBytes())
+	aduBytes := tcpADU.ToBytes()
+
+	// Send the request
+	_, err := client.conn.Write(aduBytes)
 	if err != nil {
 		return nil, err
 	}
 
-	// Calculate the response length
+	// Calculate the expected response length
 	responseLength, err := gomodbus.CalculateADULength(gomodbus.ReadInputRegister, quantity)
 	if err != nil {
 		return nil, fmt.Errorf("failed to calculate response length: %v", err)
@@ -217,37 +246,46 @@ func (client *TCPClient) ReadInputRegisters(transactionID, startingAddress, quan
 		return nil, err
 	}
 
+	// Parse the response ADU
+	responseADU := &adu.TCPADU{}
+	err = responseADU.FromBytes(response)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse response ADU: %v", err)
+	}
+
 	// Verify the function code in the response PDU
-	if response[7] != gomodbus.ReadInputRegister {
-		return nil, fmt.Errorf("invalid function code in response, expect %x but received %x", gomodbus.ReadInputRegister, response[7])
+	if responseADU.PDU[0] != gomodbus.ReadInputRegister {
+		return nil, fmt.Errorf("invalid function code in response, expect %x but received %x", gomodbus.ReadInputRegister, responseADU.PDU[0])
 	}
 
-	// Get the byte count from the response
-	byteCount := response[8]
-	if int(byteCount) != len(response)-9 {
-		return nil, fmt.Errorf("invalid byte count in response, expect %d but received %d", len(response)-9, byteCount)
-	}
+	// Parse the response PDU
+	readResponsePDU := &pdu.PDU_ReadResponse{}
+	readResponsePDU.FromBytes(responseADU.PDU)
 
-	// Parse the register values
+	// Parse the register values from the response PDU
 	registers := make([]uint16, quantity)
 	for i := 0; i < quantity; i++ {
-		register := binary.BigEndian.Uint16(response[9+i*2 : 9+i*2+2])
+		register := binary.BigEndian.Uint16(readResponsePDU.Data[i*2 : i*2+2])
 		registers[i] = register
 	}
 
 	return registers, nil
 }
 
+
 func (client *TCPClient) WriteSingleCoil(transactionID, address, unitID int, value bool) error {
-	pdu := pdu.New_PDU_WriteSingleCoil(uint16(address), value)
-	adu := adu.NewTCPADU(uint16(transactionID), byte(unitID), pdu.ToBytes())
-	adu_bytes := adu.ToBytes()
-	_, err := client.conn.Write(adu_bytes)
+	// Create a PDU for the Write Single Coil request
+	writePDU := pdu.NewPDUWriteSingleCoil(uint16(address), value)
+	tcpAdu := adu.NewTCPADU(uint16(transactionID), byte(unitID), writePDU.ToBytes())
+	aduBytes := tcpAdu.ToBytes()
+
+	// Send the request
+	_, err := client.conn.Write(aduBytes)
 	if err != nil {
 		return err
 	}
 
-	// Read the response
+	// Calculate the expected response length
 	responseLength, err := gomodbus.CalculateADULength(gomodbus.WriteSingleCoil, 1)
 	if err != nil {
 		return fmt.Errorf("failed to calculate response length: %v", err)
@@ -264,32 +302,48 @@ func (client *TCPClient) WriteSingleCoil(transactionID, address, unitID int, val
 		return err
 	}
 
+	// Parse the response ADU
+	responseADU := &adu.TCPADU{}
+	err = responseADU.FromBytes(response)
+	if err != nil {
+		return fmt.Errorf("failed to parse response ADU: %v", err)
+	}
+
 	// Verify the function code in the response PDU
-	if response[7] != gomodbus.WriteSingleCoil {
-		return fmt.Errorf("invalid function code in response, expect %x but received %x", gomodbus.WriteSingleCoil, response[7])
+	if responseADU.PDU[0] != gomodbus.WriteSingleCoil {
+		return fmt.Errorf("invalid function code in response, expect %x but received %x", gomodbus.WriteSingleCoil, responseADU.PDU[0])
 	}
 
-	if !bytes.Equal(response[8:10], adu_bytes[8:10]) {
-		return fmt.Errorf("invalid address in response, expect %v but received %v", adu_bytes[8:10], response[8:10])
+	// Parse the response PDU
+	writeResponsePDU := &pdu.PDU_WriteSingleResponse{}
+	writeResponsePDU.FromBytes(responseADU.PDU)
+
+	// Verify the address and value in the response PDU
+	if writeResponsePDU.OutputAddress != uint16(address) {
+		return fmt.Errorf("invalid address in response, expect %v but received %v", address, writeResponsePDU.OutputAddress)
 	}
 
-	if !bytes.Equal(response[10:12], adu_bytes[10:12]) {
-		return fmt.Errorf("invalid value in response, expect %v but received %v", adu_bytes[10:12], response[10:12])
+	if (value && writeResponsePDU.OutputValue != 0xFF00) || (!value && writeResponsePDU.OutputValue != 0x0000) {
+		return fmt.Errorf("invalid value in response, expect %v but received %v", value, writeResponsePDU.OutputValue)
 	}
 
 	return nil
 }
 
+
 func (client *TCPClient) WriteSingleRegister(transactionID, address, unitID int, value uint16) error {
-	pdu := pdu.New_PDU_WriteSingleRegister(uint16(address), value)
-	adu := adu.NewTCPADU(uint16(transactionID), byte(unitID), pdu.ToBytes())
-	adu_bytes := adu.ToBytes()
-	_, err := client.conn.Write(adu_bytes)
+	// Create a PDU for the Write Single Register request
+	writePDU := pdu.NewPDUWriteSingleRegister(uint16(address), value)
+	tcpADU := adu.NewTCPADU(uint16(transactionID), byte(unitID), writePDU.ToBytes())
+	aduBytes := tcpADU.ToBytes()
+
+	// Send the request
+	_, err := client.conn.Write(aduBytes)
 	if err != nil {
 		return err
 	}
 
-	// Read the response
+	// Calculate the expected response length
 	responseLength, err := gomodbus.CalculateADULength(gomodbus.WriteSingleRegister, 1)
 	if err != nil {
 		return fmt.Errorf("failed to calculate response length: %v", err)
@@ -306,33 +360,49 @@ func (client *TCPClient) WriteSingleRegister(transactionID, address, unitID int,
 		return err
 	}
 
+	// Parse the response ADU
+	responseADU := &adu.TCPADU{}
+	err = responseADU.FromBytes(response)
+	if err != nil {
+		return fmt.Errorf("failed to parse response ADU: %v", err)
+	}
+
 	// Verify the function code in the response PDU
-	if response[7] != gomodbus.WriteSingleRegister {
-		return fmt.Errorf("invalid function code in response, expect %x but received %x", gomodbus.WriteSingleRegister, response[7])
+	if responseADU.PDU[0] != gomodbus.WriteSingleRegister {
+		return fmt.Errorf("invalid function code in response, expect %x but received %x", gomodbus.WriteSingleRegister, responseADU.PDU[0])
 	}
 
-	// Verify the address and value in the response PDU
-	if !bytes.Equal(response[8:10], adu_bytes[8:10]) {
-		return fmt.Errorf("invalid address in response, expect %v but received %v", adu_bytes[8:10], response[8:10])
+	// Parse the response PDU
+	writeResponsePDU := &pdu.PDU_WriteSingleResponse{}
+	writeResponsePDU.FromBytes(responseADU.PDU)
+
+	// Verify the address in the response PDU
+	if writeResponsePDU.OutputAddress != uint16(address) {
+		return fmt.Errorf("invalid address in response, expect %v but received %v", address, writeResponsePDU.OutputAddress)
 	}
 
-	if !bytes.Equal(response[10:12], adu_bytes[10:12]) {
-		return fmt.Errorf("invalid value in response, expect %v but received %v", adu_bytes[10:12], response[10:12])
+	// Verify the value in the response PDU
+	if writeResponsePDU.OutputValue != value {
+		return fmt.Errorf("invalid value in response, expect %v but received %v", value, writeResponsePDU.OutputValue)
 	}
-	
+
 	return nil
 }
 
+
 func (client *TCPClient) WriteMultipleCoils(transactionID, startingAddress, unitID int, values []bool) error {
-	pdu := pdu.New_PDU_WriteMultipleCoils(uint16(startingAddress), values)
-	adu := adu.NewTCPADU(uint16(transactionID), byte(unitID), pdu.ToBytes())
-	adu_bytes := adu.ToBytes()
-	_, err := client.conn.Write(adu_bytes)
+	// Create a PDU for the Write Multiple Coils request
+	writePDU := pdu.NewPDUWriteMultipleCoils(uint16(startingAddress), values)
+	tcpADU := adu.NewTCPADU(uint16(transactionID), byte(unitID), writePDU.ToBytes())
+	aduBytes := tcpADU.ToBytes()
+
+	// Send the request
+	_, err := client.conn.Write(aduBytes)
 	if err != nil {
 		return err
 	}
 
-	// Read the response
+	// Calculate the expected response length
 	responseLength, err := gomodbus.CalculateADULength(gomodbus.WriteMultipleCoils, 1)
 	if err != nil {
 		return fmt.Errorf("failed to calculate response length: %v", err)
@@ -349,32 +419,49 @@ func (client *TCPClient) WriteMultipleCoils(transactionID, startingAddress, unit
 		return err
 	}
 
+	// Parse the response ADU
+	responseADU := &adu.TCPADU{}
+	err = responseADU.FromBytes(response)
+	if err != nil {
+		return fmt.Errorf("failed to parse response ADU: %v", err)
+	}
+
 	// Verify the function code in the response PDU
-	if response[7] != gomodbus.WriteMultipleCoils {
-		return fmt.Errorf("invalid function code in response, expect %x but received %x", gomodbus.WriteMultipleCoils, response[7])
+	if responseADU.PDU[0] != gomodbus.WriteMultipleCoils {
+		return fmt.Errorf("invalid function code in response, expect %x but received %x", gomodbus.WriteMultipleCoils, responseADU.PDU[0])
 	}
 
-	if !bytes.Equal(response[8:10], adu_bytes[8:10]) {
-		return fmt.Errorf("invalid starting address in response, expect %v but received %v", adu_bytes[8:10], response[8:10])
+	// Parse the response PDU
+	writeResponsePDU := &pdu.PDU_WriteMultipleResponse{}
+	writeResponsePDU.FromBytes(responseADU.PDU)
+
+	// Verify the starting address in the response PDU
+	if writeResponsePDU.StartingAddress != uint16(startingAddress) {
+		return fmt.Errorf("invalid starting address in response, expect %v but received %v", startingAddress, writeResponsePDU.StartingAddress)
 	}
 
-	if !bytes.Equal(response[10:12], adu_bytes[10:12]) {
-		return fmt.Errorf("invalid quantity in response, expect %v but received %v", adu_bytes[10:12], response[10:12])
+	// Verify the quantity in the response PDU
+	if writeResponsePDU.Quantity != uint16(len(values)) {
+		return fmt.Errorf("invalid quantity in response, expect %v but received %v", len(values), writeResponsePDU.Quantity)
 	}
 
 	return nil
 }
 
+
 func (client *TCPClient) WriteMultipleRegisters(transactionID, startingAddress, unitID int, values []uint16) error {
-	pdu := pdu.New_PDU_WriteMultipleRegisters(uint16(startingAddress), values)
-	adu := adu.NewTCPADU(uint16(transactionID), byte(unitID), pdu.ToBytes())
-	adu_bytes := adu.ToBytes()
-	_, err := client.conn.Write(adu_bytes)
+	// Create a PDU for the Write Multiple Registers request
+	writePDU := pdu.NewPDUWriteMultipleRegisters(uint16(startingAddress), values)
+	tcpADU := adu.NewTCPADU(uint16(transactionID), byte(unitID), writePDU.ToBytes())
+	aduBytes := tcpADU.ToBytes()
+
+	// Send the request
+	_, err := client.conn.Write(aduBytes)
 	if err != nil {
 		return err
 	}
 
-	// Read the response
+	// Calculate the expected response length
 	responseLength, err := gomodbus.CalculateADULength(gomodbus.WriteMultipleRegisters, 1)
 	if err != nil {
 		return fmt.Errorf("failed to calculate response length: %v", err)
@@ -391,19 +478,32 @@ func (client *TCPClient) WriteMultipleRegisters(transactionID, startingAddress, 
 		return err
 	}
 
+	// Parse the response ADU
+	responseADU := &adu.TCPADU{}
+	err = responseADU.FromBytes(response)
+	if err != nil {
+		return fmt.Errorf("failed to parse response ADU: %v", err)
+	}
+
 	// Verify the function code in the response PDU
-	if response[7] != gomodbus.WriteMultipleRegisters {
-		return fmt.Errorf("invalid function code in response, expect %x but received %x", gomodbus.WriteMultipleRegisters, response[7])
+	if responseADU.PDU[0] != gomodbus.WriteMultipleRegisters {
+		return fmt.Errorf("invalid function code in response, expect %x but received %x", gomodbus.WriteMultipleRegisters, responseADU.PDU[0])
 	}
 
-	
-	if !bytes.Equal(response[8:10], adu_bytes[8:10]) {
-		return fmt.Errorf("invalid starting address in response, expect %v but received %v", adu_bytes[8:10], response[8:10])
+	// Parse the response PDU
+	writeResponsePDU := &pdu.PDU_WriteMultipleResponse{}
+	writeResponsePDU.FromBytes(responseADU.PDU)
+
+	// Verify the starting address in the response PDU
+	if writeResponsePDU.StartingAddress != uint16(startingAddress) {
+		return fmt.Errorf("invalid starting address in response, expect %v but received %v", startingAddress, writeResponsePDU.StartingAddress)
 	}
 
-	if !bytes.Equal(response[10:12], adu_bytes[10:12]) {
-		return fmt.Errorf("invalid quantity in response, expect %v but received %v", adu_bytes[10:12], response[10:12])
+	// Verify the quantity in the response PDU
+	if writeResponsePDU.Quantity != uint16(len(values)) {
+		return fmt.Errorf("invalid quantity in response, expect %v but received %v", len(values), writeResponsePDU.Quantity)
 	}
 
 	return nil
 }
+
