@@ -14,7 +14,7 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-type Server struct {
+type SerialServer struct {
 	SerialConfig *serial.Config
 	ByteOrder    string
 	WordOrder    string
@@ -48,7 +48,7 @@ type Config struct {
 	} `yaml:"slaves"`
 }
 
-func NewServer(configFile string) (*Server, error) {
+func NewServer(configFile string) (*SerialServer, error) {
 	// Read config file
 	data, err := os.ReadFile(configFile)
 	if err != nil {
@@ -105,7 +105,7 @@ func NewServer(configFile string) (*Server, error) {
 		Baud: config.BaudRate,
 	}
 
-	return &Server{
+	return &SerialServer{
 		SerialConfig: serialConfig,
 		ByteOrder:    config.ByteOrder,
 		WordOrder:    config.WordOrder,
@@ -113,13 +113,13 @@ func NewServer(configFile string) (*Server, error) {
 	}, nil
 }
 
-func (s *Server) AddSlave(unitID byte) {
+func (s *SerialServer) AddSlave(unitID byte) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.Slaves[unitID] = &Slave{}
 }
 
-func (s *Server) Start() error {
+func (s *SerialServer) Start() error {
 	port, err := serial.OpenPort(s.SerialConfig)
 	if err != nil {
 		return fmt.Errorf("failed to open serial port: %v", err)
@@ -151,7 +151,7 @@ func (s *Server) Start() error {
 	}
 }
 
-func (s *Server) getSlave(unitID byte) (*Slave, error) {
+func (s *SerialServer) getSlave(unitID byte) (*Slave, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	slave, exists := s.Slaves[unitID]
@@ -161,7 +161,7 @@ func (s *Server) getSlave(unitID byte) (*Slave, error) {
 	return slave, nil
 }
 
-func (s *Server) processRequest(request []byte) ([]byte, error) {
+func (s *SerialServer) processRequest(request []byte) ([]byte, error) {
 	_adu := &adu.Serial_ADU{}
 	err := _adu.FromBytes(request)
 	if err != nil {
@@ -204,7 +204,7 @@ func (s *Server) processRequest(request []byte) ([]byte, error) {
 	return responseAdu.ToBytes(), nil
 }
 
-func (s *Server) readCoils(slave *Slave, pdu []byte) ([]byte, error) {
+func (s *SerialServer) readCoils(slave *Slave, pdu []byte) ([]byte, error) {
 	if len(pdu) < 5 {
 		return nil, fmt.Errorf("PDU too short")
 	}
@@ -233,7 +233,7 @@ func (s *Server) readCoils(slave *Slave, pdu []byte) ([]byte, error) {
 	return response, nil
 }
 
-func (s *Server) readDiscreteInputs(slave *Slave, pdu []byte) ([]byte, error) {
+func (s *SerialServer) readDiscreteInputs(slave *Slave, pdu []byte) ([]byte, error) {
 	if len(pdu) < 5 {
 		return nil, fmt.Errorf("PDU too short")
 	}
@@ -262,7 +262,7 @@ func (s *Server) readDiscreteInputs(slave *Slave, pdu []byte) ([]byte, error) {
 	return response, nil
 }
 
-func (s *Server) readHoldingRegisters(slave *Slave, pdu []byte) ([]byte, error) {
+func (s *SerialServer) readHoldingRegisters(slave *Slave, pdu []byte) ([]byte, error) {
 	if len(pdu) < 5 {
 		return nil, fmt.Errorf("PDU too short")
 	}
@@ -289,7 +289,7 @@ func (s *Server) readHoldingRegisters(slave *Slave, pdu []byte) ([]byte, error) 
 	return response, nil
 }
 
-func (s *Server) readInputRegisters(slave *Slave, pdu []byte) ([]byte, error) {
+func (s *SerialServer) readInputRegisters(slave *Slave, pdu []byte) ([]byte, error) {
 	if len(pdu) < 5 {
 		return nil, fmt.Errorf("PDU too short")
 	}
@@ -316,7 +316,7 @@ func (s *Server) readInputRegisters(slave *Slave, pdu []byte) ([]byte, error) {
 	return response, nil
 }
 
-func (s *Server) writeSingleCoil(slave *Slave, pdu []byte) ([]byte, error) {
+func (s *SerialServer) writeSingleCoil(slave *Slave, pdu []byte) ([]byte, error) {
 	if len(pdu) < 5 {
 		return nil, fmt.Errorf("PDU too short")
 	}
@@ -339,7 +339,7 @@ func (s *Server) writeSingleCoil(slave *Slave, pdu []byte) ([]byte, error) {
 	return pdu, nil
 }
 
-func (s *Server) writeMultipleCoils(slave *Slave, pdu []byte) ([]byte, error) {
+func (s *SerialServer) writeMultipleCoils(slave *Slave, pdu []byte) ([]byte, error) {
 	if len(pdu) < 6 {
 		return nil, fmt.Errorf("PDU too short")
 	}
@@ -366,7 +366,7 @@ func (s *Server) writeMultipleCoils(slave *Slave, pdu []byte) ([]byte, error) {
 	return pdu[:6], nil
 }
 
-func (s *Server) writeSingleRegister(slave *Slave, pdu []byte) ([]byte, error) {
+func (s *SerialServer) writeSingleRegister(slave *Slave, pdu []byte) ([]byte, error) {
 	if len(pdu) < 5 {
 		return nil, fmt.Errorf("PDU too short")
 	}
@@ -383,7 +383,7 @@ func (s *Server) writeSingleRegister(slave *Slave, pdu []byte) ([]byte, error) {
 	return pdu, nil
 }
 
-func (s *Server) writeMultipleRegisters(slave *Slave, pdu []byte) ([]byte, error) {
+func (s *SerialServer) writeMultipleRegisters(slave *Slave, pdu []byte) ([]byte, error) {
 	if len(pdu) < 6 {
 		return nil, fmt.Errorf("PDU too short")
 	}
@@ -407,7 +407,7 @@ func (s *Server) writeMultipleRegisters(slave *Slave, pdu []byte) ([]byte, error
 	return pdu[:6], nil
 }
 
-func (s *Server) exceptionResponse(request []byte, exceptionCode byte) []byte {
+func (s *SerialServer) exceptionResponse(request []byte, exceptionCode byte) []byte {
 	unitID := request[0]
 	functionCode := request[1] | 0x80 // Set the highest bit to indicate an error
 
