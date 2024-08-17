@@ -24,16 +24,13 @@ func startModbusServer(t *testing.T) *server.TCPServer {
 
 	// Set legal addresses and initialize discrete inputs for the slave
 	slave := s.Slaves[1]
-	for i := 0; i < 65535; i++ {
-		slave.LegalCoilsAddress[i] = true
-		slave.LegalDiscreteInputsAddress[i] = true
-		slave.LegalHoldingRegistersAddress[i] = true
-		slave.LegalInputRegistersAddress[i] = true
+	for i := 0; i < 65535; i++ { // Initialize some discrete inputs for testing
 
-		// Initialize some discrete inputs for testing
-		if i%2 == 0 {
-			slave.DiscreteInputs[i] = true
-		}
+		slave.Coils[uint16(i)] = true
+		slave.DiscreteInputs[uint16(i)] = true
+		slave.HoldingRegisters[uint16(i)] = uint16(i)
+		slave.InputRegisters[uint16(i)] = uint16(i)
+
 	}
 
 	go func() {

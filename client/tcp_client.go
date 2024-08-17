@@ -5,6 +5,7 @@ import (
 	"crypto/x509"
 	"encoding/binary"
 	"fmt"
+	"log"
 	"net"
 	"os"
 
@@ -102,6 +103,7 @@ func (client *TCPClient) ReadCoils(transactionID, startingAddress, quantity, uni
 	aduBytes := tcpADU.ToBytes()
 
 	// Send the request
+	log.Printf("Sending Read Coils Request: %x", aduBytes)
 	_, err := client.conn.Write(aduBytes)
 	if err != nil {
 		return nil, err
@@ -119,6 +121,8 @@ func (client *TCPClient) ReadCoils(transactionID, startingAddress, quantity, uni
 	if err != nil {
 		return nil, err
 	}
+
+	log.Printf("Received Read Coils Response: %x", response)	
 
 	// Check for ADU errors
 	err = gomodbus.CheckModbusError(response)
@@ -161,6 +165,7 @@ func (client *TCPClient) ReadDiscreteInputs(transactionID, startingAddress, quan
 	aduBytes := tcpADU.ToBytes()
 
 	// Send the request
+	log.Printf("Sending Read Discrete Inputs Request: %x", aduBytes)
 	_, err := client.conn.Write(aduBytes)
 	if err != nil {
 		return nil, err
@@ -178,6 +183,8 @@ func (client *TCPClient) ReadDiscreteInputs(transactionID, startingAddress, quan
 	if err != nil {
 		return nil, err
 	}
+
+	log.Printf("Received Read Discrete Inputs Response: %x", response)
 
 	// Check for ADU errors
 	err = gomodbus.CheckModbusError(response)
@@ -220,6 +227,7 @@ func (client *TCPClient) ReadHoldingRegisters(transactionID, startingAddress, qu
 	aduBytes := tcpADU.ToBytes()
 
 	// Send the request
+	log.Printf("Sending Read Holding Registers Request: %x", aduBytes)
 	_, err := client.conn.Write(aduBytes)
 	if err != nil {
 		return nil, err
@@ -237,6 +245,8 @@ func (client *TCPClient) ReadHoldingRegisters(transactionID, startingAddress, qu
 	if err != nil {
 		return nil, err
 	}
+
+	log.Printf("Received Read Holding Registers Response: %x", response)
 
 	// Check for ADU errors
 	err = gomodbus.CheckModbusError(response)
@@ -278,6 +288,7 @@ func (client *TCPClient) ReadInputRegisters(transactionID, startingAddress, quan
 	aduBytes := tcpADU.ToBytes()
 
 	// Send the request
+	log.Printf("Sending Read Input Registers Request: %x", aduBytes)
 	_, err := client.conn.Write(aduBytes)
 	if err != nil {
 		return nil, err
@@ -295,6 +306,8 @@ func (client *TCPClient) ReadInputRegisters(transactionID, startingAddress, quan
 	if err != nil {
 		return nil, err
 	}
+
+	log.Printf("Received Read Input Registers Response: %x", response)
 
 	// Check for ADU errors
 	err = gomodbus.CheckModbusError(response)
@@ -336,6 +349,7 @@ func (client *TCPClient) WriteSingleCoil(transactionID, address, unitID int, val
 	aduBytes := tcpAdu.ToBytes()
 
 	// Send the request
+	log.Printf("Sending Write Single Coil Request: %x", aduBytes)
 	_, err := client.conn.Write(aduBytes)
 	if err != nil {
 		return err
@@ -351,6 +365,8 @@ func (client *TCPClient) WriteSingleCoil(transactionID, address, unitID int, val
 	if err != nil {
 		return err
 	}
+
+	log.Printf("Received Write Single Coil Response: %x", response)
 
 	// Check for ADU errors
 	err = gomodbus.CheckModbusError(response)
@@ -394,6 +410,7 @@ func (client *TCPClient) WriteSingleRegister(transactionID, address, unitID int,
 	aduBytes := tcpADU.ToBytes()
 
 	// Send the request
+	log.Printf("Sending Write Single Register Request: %x", aduBytes)
 	_, err := client.conn.Write(aduBytes)
 	if err != nil {
 		return err
@@ -409,6 +426,8 @@ func (client *TCPClient) WriteSingleRegister(transactionID, address, unitID int,
 	if err != nil {
 		return err
 	}
+
+	log.Printf("Received Write Single Register Response: %x", response)
 
 	// Check for ADU errors
 	err = gomodbus.CheckModbusError(response)
@@ -453,6 +472,7 @@ func (client *TCPClient) WriteMultipleCoils(transactionID, startingAddress, unit
 	aduBytes := tcpADU.ToBytes()
 
 	// Send the request
+	log.Printf("Sending Write Multiple Coils Request: %x", aduBytes)
 	_, err := client.conn.Write(aduBytes)
 	if err != nil {
 		return err
@@ -474,6 +494,8 @@ func (client *TCPClient) WriteMultipleCoils(transactionID, startingAddress, unit
 	if err != nil {
 		return err
 	}
+
+	log.Printf("Received Write Multiple Coils Response: %x", response)
 
 	// Parse the response ADU
 	responseADU := &adu.TCPADU{}
@@ -512,6 +534,7 @@ func (client *TCPClient) WriteMultipleRegisters(transactionID, startingAddress, 
 	aduBytes := tcpADU.ToBytes()
 
 	// Send the request
+	log.Printf("Sending Write Multiple Registers Request: %x", aduBytes)
 	_, err := client.conn.Write(aduBytes)
 	if err != nil {
 		return err
@@ -533,6 +556,8 @@ func (client *TCPClient) WriteMultipleRegisters(transactionID, startingAddress, 
 	if err != nil {
 		return err
 	}
+
+	log.Printf("Received Write Multiple Registers Response: %x", response)
 
 	// Parse the response ADU
 	responseADU := &adu.TCPADU{}

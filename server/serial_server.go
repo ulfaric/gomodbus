@@ -77,25 +77,21 @@ func NewServer(configFile string) (*SerialServer, error) {
 		// Set coils and their legal addresses
 		for _, coil := range slaveConfig.Coils {
 			slave.Coils[coil.Address] = coil.Value
-			slave.LegalCoilsAddress[coil.Address] = true
 		}
 
 		// Set discrete inputs and their legal addresses
 		for _, input := range slaveConfig.DiscreteInputs {
 			slave.DiscreteInputs[input.Address] = input.Value
-			slave.LegalDiscreteInputsAddress[input.Address] = true
 		}
 
 		// Set holding registers and their legal addresses
 		for _, register := range slaveConfig.HoldingRegisters {
 			slave.HoldingRegisters[register.Address] = register.Value
-			slave.LegalHoldingRegistersAddress[register.Address] = true
 		}
 
 		// Set input registers and their legal addresses
 		for _, register := range slaveConfig.InputRegisters {
 			slave.InputRegisters[register.Address] = register.Value
-			slave.LegalInputRegistersAddress[register.Address] = true
 		}
 
 		slaves[slaveConfig.UnitID] = slave
@@ -117,7 +113,12 @@ func NewServer(configFile string) (*SerialServer, error) {
 func (s *SerialServer) AddSlave(unitID byte) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.Slaves[unitID] = &Slave{}
+	s.Slaves[unitID] = &Slave{
+		Coils:            make(map[uint16]bool),
+		DiscreteInputs:   make(map[uint16]bool),
+		HoldingRegisters: make(map[uint16]uint16),
+		InputRegisters:   make(map[uint16]uint16),
+	}
 }
 
 // Start starts the server
@@ -145,6 +146,7 @@ func (s *SerialServer) Start() error {
 			response = s.exceptionResponse(request, 0x04) // Server Device Failure
 		}
 
+		log.Printf("Sending Response: %x", response)
 		_, err = port.Write(response)
 		if err != nil {
 			log.Printf("Failed to write response: %v", err)
@@ -180,56 +182,76 @@ func (s *SerialServer) processRequest(request []byte) ([]byte, error) {
 	}
 
 	// Process the request based on the function code
-	var responsePDU []byte
+	var responseADU []byte
 	switch serialADU.PDU[0] { // Function code is the first byte in PDU
 	case 0x01:
-		responsePDU, err = s.handleReadCoils(slave, serialADU.PDU)
+		responseADU, err = s.handleReadCoils(slave, serialADU)
+		if err != nil {
+			log.Printf("Failed to handle Read Coils: %v", err)
+		}
 	case 0x02:
-		responsePDU, err = s.handleReadDiscreteInputs(slave, serialADU.PDU)
+		responseADU, err = s.handleReadDiscreteInputs(slave, serialADU)
+		if err != nil {
+			log.Printf("Failed to handle Read Discrete Inputs: %v", err)
+		}
 	case 0x03:
-		responsePDU, err = s.hanldeReadHoldingRegisters(slave, serialADU.PDU)
+		responseADU, err = s.hanldeReadHoldingRegisters(slave, serialADU)
+		if err != nil {
+			log.Printf("Failed to handle Read Holding Registers: %v", err)
+		}
 	case 0x04:
-		responsePDU, err = s.handleReadInputRegisters(slave, serialADU.PDU)
+		responseADU, err = s.handleReadInputRegisters(slave, serialADU)
+		if err != nil {
+			log.Printf("Failed to handle Read Input Registers: %v", err)
+		}
 	case 0x05:
-		responsePDU, err = s.handleWriteSingleCoil(slave, serialADU.PDU)
+		responseADU, err = s.handleWriteSingleCoil(slave, serialADU)
+		if err != nil {
+			log.Printf("Failed to handle Write Single Coil: %v", err)
+		}
 	case 0x06:
-		responsePDU, err = s.handleWriteSingleRegister(slave, serialADU.PDU)
+		responseADU, err = s.handleWriteSingleRegister(slave, serialADU)
+		if err != nil {
+			log.Printf("Failed to handle Write Single Register: %v", err)
+		}
 	case 0x0F:
-		responsePDU, err = s.handleWriteMultipleCoils(slave, serialADU.PDU)
+		responseADU, err = s.handleWriteMultipleCoils(slave, serialADU)
+		if err != nil {
+			log.Printf("Failed to handle Write Multiple Coils: %v", err)
+		}
 	case 0x10:
-		responsePDU, err = s.handleWriteMultipleRegisters(slave, serialADU.PDU)
+		responseADU, err = s.handleWriteMultipleRegisters(slave, serialADU)
+		if err != nil {
+			log.Printf("Failed to handle Write Multiple Registers: %v", err)
+		}
 	default:
 		return s.exceptionResponse(request, 0x01), nil // Illegal Function
 	}
-
-	if err != nil {
-		return s.exceptionResponse(request, 0x04), err // Server Device Failure
-	}
-
 	// Create the response ADU using the response PDU
-	responseADU := adu.NewSerialADU(serialADU.Address, responsePDU)
-	return responseADU.ToBytes(), nil
+	return responseADU, nil
 }
 
 // handleReadCoils handles the Read Coils function
-func (s *SerialServer) handleReadCoils(slave *Slave, pduBytes []byte) ([]byte, error) {
+func (s *SerialServer) handleReadCoils(slave *Slave, requestADU *adu.SerialADU) ([]byte, error) {
 	pduRead := &pdu.PDU_Read{}
-	pduRead.FromBytes(pduBytes)
+	pduRead.FromBytes(requestADU.PDU)
 
 	startAddress := pduRead.StartingAddress
 	quantity := pduRead.Quantity
 
-	if startAddress+quantity > 65535 || !slave.LegalCoilsAddress[startAddress] {
-		return s.exceptionResponse(pduBytes, 0x02), nil // Illegal Data Address
+	if startAddress+quantity > 65535 {
+		return s.exceptionResponse(requestADU.ToBytes(), 0x02), nil // Illegal Data Address
+	}
+
+	for i := 0; i < int(quantity); i++ {
+		if _, exists := slave.Coils[startAddress+uint16(i)]; !exists {
+			return s.exceptionResponse(requestADU.ToBytes(), 0x02), nil // Illegal Data Address
+		}
 	}
 
 	byteCount := (quantity + 7) / 8
 	responseData := make([]byte, byteCount)
-
 	for i := 0; i < int(quantity); i++ {
-		if !slave.LegalCoilsAddress[startAddress+uint16(i)] {
-			return s.exceptionResponse(pduBytes, 0x02), nil // Illegal Data Address
-		}
 		if slave.Coils[startAddress+uint16(i)] {
 			responseData[i/8] |= 1 << (i % 8)
 		}
@@ -240,24 +262,27 @@ func (s *SerialServer) handleReadCoils(slave *Slave, pduBytes []byte) ([]byte, e
 }
 
 // handleReadDiscreteInputs handles the Read Discrete Inputs function
-func (s *SerialServer) handleReadDiscreteInputs(slave *Slave, pduBytes []byte) ([]byte, error) {
+func (s *SerialServer) handleReadDiscreteInputs(slave *Slave, requestADU *adu.SerialADU) ([]byte, error) {
 	pduRead := &pdu.PDU_Read{}
-	pduRead.FromBytes(pduBytes)
+	pduRead.FromBytes(requestADU.PDU)
 
 	startAddress := pduRead.StartingAddress
 	quantity := pduRead.Quantity
 
-	if startAddress+quantity > 65535 || !slave.LegalDiscreteInputsAddress[startAddress] {
-		return s.exceptionResponse(pduBytes, 0x02), nil // Illegal Data Address
+	if startAddress+quantity > 65535 {
+		return s.exceptionResponse(requestADU.ToBytes(), 0x02), nil // Illegal Data Address
+	}
+
+	for i := 0; i < int(quantity); i++ {
+		if _, exists := slave.DiscreteInputs[startAddress+uint16(i)]; !exists {
+			return s.exceptionResponse(requestADU.ToBytes(), 0x02), nil // Illegal Data Address
+		}
 	}
 
 	byteCount := (quantity + 7) / 8
 	responseData := make([]byte, byteCount)
 
 	for i := 0; i < int(quantity); i++ {
-		if !slave.LegalDiscreteInputsAddress[startAddress+uint16(i)] {
-			return s.exceptionResponse(pduBytes, 0x02), nil // Illegal Data Address
-		}
 		if slave.DiscreteInputs[startAddress+uint16(i)] {
 			responseData[i/8] |= 1 << (i % 8)
 		}
@@ -268,23 +293,25 @@ func (s *SerialServer) handleReadDiscreteInputs(slave *Slave, pduBytes []byte) (
 }
 
 // hanldeReadHoldingRegisters handles the Read Holding Registers function
-func (s *SerialServer) hanldeReadHoldingRegisters(slave *Slave, pduBytes []byte) ([]byte, error) {
+func (s *SerialServer) hanldeReadHoldingRegisters(slave *Slave, requestADU *adu.SerialADU) ([]byte, error) {
 	pduRead := &pdu.PDU_Read{}
-	pduRead.FromBytes(pduBytes)
+	pduRead.FromBytes(requestADU.PDU)
 
 	startAddress := pduRead.StartingAddress
 	quantity := pduRead.Quantity
 
-	if startAddress+quantity > 65535 || !slave.LegalHoldingRegistersAddress[startAddress] {
-		return s.exceptionResponse(pduBytes, 0x02), nil // Illegal Data Address
+	if startAddress+quantity > 65535 {
+		return s.exceptionResponse(requestADU.ToBytes(), 0x02), nil // Illegal Data Address
+	}
+
+	for i := 0; i < int(quantity); i++ {
+		if _, exists := slave.HoldingRegisters[startAddress+uint16(i)]; !exists {
+			return s.exceptionResponse(requestADU.ToBytes(), 0x02), nil // Illegal Data Address
+		}
 	}
 
 	responseData := make([]byte, 2*quantity)
-
 	for i := 0; i < int(quantity); i++ {
-		if !slave.LegalHoldingRegistersAddress[startAddress+uint16(i)] {
-			return s.exceptionResponse(pduBytes, 0x02), nil // Illegal Data Address
-		}
 		value := slave.HoldingRegisters[startAddress+uint16(i)]
 		binary.BigEndian.PutUint16(responseData[2*i:], value)
 	}
@@ -294,23 +321,25 @@ func (s *SerialServer) hanldeReadHoldingRegisters(slave *Slave, pduBytes []byte)
 }
 
 // handleReadInputRegisters handles the Read Input Registers function
-func (s *SerialServer) handleReadInputRegisters(slave *Slave, pduBytes []byte) ([]byte, error) {
+func (s *SerialServer) handleReadInputRegisters(slave *Slave, requestADU *adu.SerialADU) ([]byte, error) {
 	pduRead := &pdu.PDU_Read{}
-	pduRead.FromBytes(pduBytes)
+	pduRead.FromBytes(requestADU.PDU)
 
 	startAddress := pduRead.StartingAddress
 	quantity := pduRead.Quantity
 
-	if startAddress+quantity > 65535 || !slave.LegalInputRegistersAddress[startAddress] {
-		return s.exceptionResponse(pduBytes, 0x02), nil // Illegal Data Address
+	if startAddress+quantity > 65535 {
+		return s.exceptionResponse(requestADU.ToBytes(), 0x02), nil // Illegal Data Address
+	}
+
+	for i := 0; i < int(quantity); i++ {
+		if _, exists := slave.InputRegisters[startAddress+uint16(i)]; !exists {
+			return s.exceptionResponse(requestADU.ToBytes(), 0x02), nil // Illegal Data Address
+		}
 	}
 
 	responseData := make([]byte, 2*quantity)
-
 	for i := 0; i < int(quantity); i++ {
-		if !slave.LegalInputRegistersAddress[startAddress+uint16(i)] {
-			return s.exceptionResponse(pduBytes, 0x02), nil // Illegal Data Address
-		}
 		value := slave.InputRegisters[startAddress+uint16(i)]
 		binary.BigEndian.PutUint16(responseData[2*i:], value)
 	}
@@ -320,15 +349,19 @@ func (s *SerialServer) handleReadInputRegisters(slave *Slave, pduBytes []byte) (
 }
 
 // handleWriteSingleCoil handles the Write Single Coil function
-func (s *SerialServer) handleWriteSingleCoil(slave *Slave, pduBytes []byte) ([]byte, error) {
+func (s *SerialServer) handleWriteSingleCoil(slave *Slave, requestADU *adu.SerialADU) ([]byte, error) {
 	pduWrite := &pdu.PDU_WriteSingleCoil{}
-	pduWrite.FromBytes(pduBytes)
+	pduWrite.FromBytes(requestADU.PDU)
 
 	address := pduWrite.OutputAddress
 	value := pduWrite.OutputValue
 
-	if address >= 65535 || !slave.LegalCoilsAddress[address] {
-		return s.exceptionResponse(pduBytes, 0x02), nil // Illegal Data Address
+	if address >= 65535 {
+		return s.exceptionResponse(requestADU.ToBytes(), 0x02), nil // Illegal Data Address
+	}
+
+	if _, exists := slave.Coils[address]; !exists {
+		return s.exceptionResponse(requestADU.ToBytes(), 0x02), nil // Illegal Data Address
 	}
 
 	if value == 0xFF00 {
@@ -336,29 +369,32 @@ func (s *SerialServer) handleWriteSingleCoil(slave *Slave, pduBytes []byte) ([]b
 	} else if value == 0x0000 {
 		slave.Coils[address] = false
 	} else {
-		return s.exceptionResponse(pduBytes, 0x03), nil // Illegal Data Value
+		return s.exceptionResponse(requestADU.ToBytes(), 0x03), nil // Illegal Data Value
 	}
 
 	return pduWrite.ToBytes(), nil
 }
 
 // handleWriteMultipleCoils handles the Write Multiple Coils function
-func (s *SerialServer) handleWriteMultipleCoils(slave *Slave, pduBytes []byte) ([]byte, error) {
+func (s *SerialServer) handleWriteMultipleCoils(slave *Slave, requestADU *adu.SerialADU) ([]byte, error) {
 	pduWrite := &pdu.PDU_WriteMultipleCoils{}
-	pduWrite.FromBytes(pduBytes)
+	pduWrite.FromBytes(requestADU.PDU)
 
 	startAddress := pduWrite.StartingAddress
 	quantity := pduWrite.QuantityOfOutputs
 	byteCount := pduWrite.ByteCount
 
-	if int(byteCount) != len(pduWrite.OutputValues) || startAddress+quantity > 65535 || !slave.LegalCoilsAddress[startAddress] {
-		return s.exceptionResponse(pduBytes, 0x02), nil // Illegal Data Address
+	if int(byteCount) != len(pduWrite.OutputValues) || startAddress+quantity > 65535 {
+		return s.exceptionResponse(requestADU.ToBytes(), 0x02), nil // Illegal Data Address
 	}
 
 	for i := 0; i < int(quantity); i++ {
-		if !slave.LegalCoilsAddress[startAddress+uint16(i)] {
-			return s.exceptionResponse(pduBytes, 0x02), nil // Illegal Data Address
+		if _, exists := slave.Coils[startAddress+uint16(i)]; !exists {
+			return s.exceptionResponse(requestADU.ToBytes(), 0x02), nil // Illegal Data Address
 		}
+	}
+
+	for i := 0; i < int(quantity); i++ {
 		if pduWrite.OutputValues[i/8]&(1<<(i%8)) != 0 {
 			slave.Coils[startAddress+uint16(i)] = true
 		} else {
@@ -371,15 +407,19 @@ func (s *SerialServer) handleWriteMultipleCoils(slave *Slave, pduBytes []byte) (
 }
 
 // handleWriteSingleRegister handles the Write Single Register function
-func (s *SerialServer) handleWriteSingleRegister(slave *Slave, pduBytes []byte) ([]byte, error) {
+func (s *SerialServer) handleWriteSingleRegister(slave *Slave, requestADU *adu.SerialADU) ([]byte, error) {
 	pduWrite := &pdu.PDU_WriteSingleRegister{}
-	pduWrite.FromBytes(pduBytes)
+	pduWrite.FromBytes(requestADU.PDU)
 
 	address := pduWrite.RegisterAddress
 	value := pduWrite.RegisterValue
 
-	if address >= 65535 || !slave.LegalHoldingRegistersAddress[address] {
-		return s.exceptionResponse(pduBytes, 0x02), nil // Illegal Data Address
+	if address >= 65535 {
+		return s.exceptionResponse(requestADU.ToBytes(), 0x02), nil // Illegal Data Address
+	}
+
+	if _, exists := slave.HoldingRegisters[address]; !exists {
+		return s.exceptionResponse(requestADU.ToBytes(), 0x02), nil // Illegal Data Address
 	}
 
 	slave.HoldingRegisters[address] = value
@@ -388,22 +428,25 @@ func (s *SerialServer) handleWriteSingleRegister(slave *Slave, pduBytes []byte) 
 }
 
 // handleWriteMultipleRegisters handles the Write Multiple Registers function
-func (s *SerialServer) handleWriteMultipleRegisters(slave *Slave, pduBytes []byte) ([]byte, error) {
+func (s *SerialServer) handleWriteMultipleRegisters(slave *Slave, requestADU *adu.SerialADU) ([]byte, error) {
 	pduWrite := &pdu.PDU_WriteMultipleRegisters{}
-	pduWrite.FromBytes(pduBytes)
+	pduWrite.FromBytes(requestADU.PDU)
 
 	startAddress := pduWrite.StartingAddress
 	quantity := pduWrite.QuantityOfOutputs
 	byteCount := pduWrite.ByteCount
 
-	if int(byteCount) != len(pduWrite.OutputValues) || startAddress+quantity > 65535 || !slave.LegalHoldingRegistersAddress[startAddress] {
-		return s.exceptionResponse(pduBytes, 0x02), nil // Illegal Data Address
+	if int(byteCount) != len(pduWrite.OutputValues) || startAddress+quantity > 65535 {
+		return s.exceptionResponse(requestADU.ToBytes(), 0x02), nil // Illegal Data Address
 	}
 
 	for i := 0; i < int(quantity); i++ {
-		if !slave.LegalHoldingRegistersAddress[startAddress+uint16(i)] {
-			return s.exceptionResponse(pduBytes, 0x02), nil // Illegal Data Address
+		if _, exists := slave.HoldingRegisters[startAddress+uint16(i)]; !exists {
+			return s.exceptionResponse(requestADU.ToBytes(), 0x02), nil // Illegal Data Address
 		}
+	}
+
+	for i := 0; i < int(quantity); i++ {
 		value := binary.BigEndian.Uint16(pduWrite.OutputValues[2*i:])
 		slave.HoldingRegisters[startAddress+uint16(i)] = value
 	}

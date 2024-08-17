@@ -25,13 +25,11 @@ type TCPServer struct {
 	Slaves    map[byte]*Slave
 	mu        sync.Mutex
 
-	UseTLS  bool
+	UseTLS   bool
 	CertFile string
 	KeyFile  string
 	CAFile   string
 }
-
-
 
 type TCPConfig struct {
 	Host      string `yaml:"host"`
@@ -64,8 +62,6 @@ type TCPConfig struct {
 	} `yaml:"slaves"`
 }
 
-
-
 func NewTCPServer(host, byteOrder, wordOrder string, port int) (*TCPServer, error) {
 	// read config file
 	data, err := os.ReadFile("config.yaml")
@@ -94,25 +90,21 @@ func NewTCPServer(host, byteOrder, wordOrder string, port int) (*TCPServer, erro
 		// Set coils and their legal addresses
 		for _, coil := range slaveConfig.Coils {
 			slave.Coils[coil.Address] = coil.Value
-			slave.LegalCoilsAddress[coil.Address] = true
 		}
 
 		// Set discrete inputs and their legal addresses
 		for _, input := range slaveConfig.DiscreteInputs {
 			slave.DiscreteInputs[input.Address] = input.Value
-			slave.LegalDiscreteInputsAddress[input.Address] = true
 		}
 
 		// Set holding registers and their legal addresses
 		for _, register := range slaveConfig.HoldingRegisters {
 			slave.HoldingRegisters[register.Address] = register.Value
-			slave.LegalHoldingRegistersAddress[register.Address] = true
 		}
 
 		// Set input registers and their legal addresses
 		for _, register := range slaveConfig.InputRegisters {
 			slave.InputRegisters[register.Address] = register.Value
-			slave.LegalInputRegistersAddress[register.Address] = true
 		}
 
 		slaves[slaveConfig.UnitID] = slave
@@ -131,12 +123,15 @@ func NewTCPServer(host, byteOrder, wordOrder string, port int) (*TCPServer, erro
 	}, nil
 }
 
-
-
 func (s *TCPServer) AddSlave(unitID byte) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.Slaves[unitID] = &Slave{}
+	s.Slaves[unitID] = &Slave{
+		Coils:            make(map[uint16]bool),
+		DiscreteInputs:   make(map[uint16]bool),
+		HoldingRegisters: make(map[uint16]uint16),
+		InputRegisters:   make(map[uint16]uint16),
+	}
 }
 
 func (s *TCPServer) Start() error {
@@ -197,7 +192,6 @@ func (s *TCPServer) Start() error {
 	}
 }
 
-
 func (s *TCPServer) handleConnection(conn net.Conn) {
 	defer conn.Close()
 
@@ -212,11 +206,11 @@ func (s *TCPServer) handleConnection(conn net.Conn) {
 
 		request := buffer[:n]
 		response, err := s.processRequest(request)
+		log.Printf("Sending Response: %x", response)
 		if err != nil {
 			log.Printf("Failed to process request: %v", err)
 			response = s.exceptionResponse(request, 0x04) // Server Device Failure
 		}
-
 		_, err = conn.Write(response)
 		if err != nil {
 			log.Printf("Failed to write response: %v", err)
@@ -236,310 +230,362 @@ func (s *TCPServer) getSlave(unitID byte) (*Slave, error) {
 }
 
 func (s *TCPServer) processRequest(request []byte) ([]byte, error) {
-    // Parse the request as a TCP ADU
-    tcpADU := &adu.TCPADU{}
-    err := tcpADU.FromBytes(request)
-    if err != nil {
-        return s.exceptionResponse(request, 0x03), nil // Illegal Data Value
-    }
+	// Parse the request as a TCP ADU
+	tcpADU := &adu.TCPADU{}
+	err := tcpADU.FromBytes(request)
+	if err != nil {
+		log.Printf("Failed to parse request: %v", err)
+		return s.exceptionResponse(request, 0x03), nil // Illegal Data Value
+	}
 
-    // Verify if the actual length matches the length specified in the ADU
-    if len(request) != int(tcpADU.Length)+6 {
-        return s.exceptionResponse(request, 0x03), nil // Illegal Data Value
-    }
+	// Verify if the actual length matches the length specified in the ADU
+	if len(request) != int(tcpADU.Length)+6 {
+		log.Printf("Request length mismatch: %d != %d", len(request), int(tcpADU.Length)+6)
+		return s.exceptionResponse(request, 0x03), nil // Illegal Data Value
+	}
 
-    // Fetch the slave based on Unit ID
-    slave, err := s.getSlave(tcpADU.UnitID)
-    if err != nil {
-        return s.exceptionResponse(request, 0x04), nil // Server Device Failure
-    }
+	// Fetch the slave based on Unit ID
+	slave, err := s.getSlave(tcpADU.UnitID)
+	if err != nil {
+		log.Printf("Failed to get slave: %v", err)
+		return s.exceptionResponse(request, 0x04), nil // Server Device Failure
+	}
 
 	// Process the request based on the function code
-	var responsePDU []byte
-    switch tcpADU.PDU[0] { // Function code is the first byte in PDU
-    case 0x01:
-        responsePDU, err = s.handleReadCoils(slave, tcpADU.PDU)
-    case 0x02:
-        responsePDU, err = s.handleReadDiscreteInputs(slave, tcpADU.PDU)
-    case 0x03:
-        responsePDU, err = s.hanldeReadHoldingRegisters(slave, tcpADU.PDU)
-    case 0x04:
-        responsePDU, err = s.handleReadInputRegisters(slave, tcpADU.PDU)
-    case 0x05:
-        responsePDU, err = s.handleWriteSingleCoil(slave, tcpADU.PDU)
-    case 0x06:
-        responsePDU, err = s.handleWriteSingleRegister(slave, tcpADU.PDU)
-    case 0x0F:
-        responsePDU, err = s.handleWriteMultipleCoils(slave, tcpADU.PDU)
-    case 0x10:
-        responsePDU, err = s.handleWriteMultipleRegisters(slave, tcpADU.PDU)
-    default:
-        return s.exceptionResponse(request, 0x01), nil // Illegal Function
-    }
+	var responseADU []byte
+	switch tcpADU.PDU[0] { // Function code is the first byte in PDU
+	case 0x01:
+		responseADU, err = s.handleReadCoils(slave, tcpADU)
+		if err != nil {
+			log.Printf("Failed to handle read coils: %v", err)
 
-    if err != nil {
-        return s.exceptionResponse(request, 0x04), err // Server Device Failure
-    }
+		}
+	case 0x02:
+		responseADU, err = s.handleReadDiscreteInputs(slave, tcpADU)
+		if err != nil {
+			log.Printf("Failed to handle read discrete inputs: %v", err)
+		}
+	case 0x03:
+		responseADU, err = s.hanldeReadHoldingRegisters(slave, tcpADU)
+		if err != nil {
+			log.Printf("Failed to handle read holding registers: %v", err)
+		}
+	case 0x04:
+		responseADU, err = s.handleReadInputRegisters(slave, tcpADU)
+		if err != nil {
+			log.Printf("Failed to handle read input registers: %v", err)
+		}
+	case 0x05:
+		responseADU, err = s.handleWriteSingleCoil(slave, tcpADU)
+		if err != nil {
+			log.Printf("Failed to handle write single coil: %v", err)
+		}
+	case 0x06:
+		responseADU, err = s.handleWriteSingleRegister(slave, tcpADU)
+		if err != nil {
+			log.Printf("Failed to handle write single register: %v", err)
+		}
+	case 0x0F:
+		responseADU, err = s.handleWriteMultipleCoils(slave, tcpADU)
+		if err != nil {
+			log.Printf("Failed to handle write multiple coils: %v", err)
+		}
+	case 0x10:
+		responseADU, err = s.handleWriteMultipleRegisters(slave, tcpADU)
+		if err != nil {
+			log.Printf("Failed to handle write multiple registers: %v", err)
+		}
+	default:
+		log.Printf("Illegal function code: %x", tcpADU.PDU[0])
+		return s.exceptionResponse(request, 0x01), nil // Illegal Function
+	}
 
-    // Create the response ADU using the response PDU
-    responseADU := adu.NewTCPADU(tcpADU.TransactionID, tcpADU.UnitID, responsePDU)
-
-    return responseADU.ToBytes(), nil
+	return responseADU, nil
 }
 
 // handleReadCoils handles the Read Coils function
-func (s *TCPServer) handleReadCoils(slave *Slave, pduBytes []byte) ([]byte, error) {
-    // Parse the PDU
-    pduRead := &pdu.PDU_Read{}
-    pduRead.FromBytes(pduBytes)
+func (s *TCPServer) handleReadCoils(slave *Slave, tcpADU *adu.TCPADU) ([]byte, error) {
+	// Parse the PDU
+	pduRead := &pdu.PDU_Read{}
+	pduRead.FromBytes(tcpADU.PDU)
 
-    startAddress := pduRead.StartingAddress
-    quantity := pduRead.Quantity
+	startAddress := pduRead.StartingAddress
+	quantity := pduRead.Quantity
 
-    // Validate request
-    if startAddress+quantity > 65535 || !slave.LegalCoilsAddress[startAddress] {
-        return s.exceptionResponse(pduBytes, 0x02), nil // Illegal Data Address
-    }
+	// Validate request
+	if startAddress+quantity > 65535 {
+		log.Printf("Illegal data address: %d", startAddress+quantity)
+		return s.exceptionResponse(tcpADU.ToBytes(), 0x02), nil // Illegal Data Address
+	}
 
-    // Prepare response data
-    byteCount := (quantity + 7) / 8
-    responseData := make([]byte, byteCount)
+	for i := 0; i < int(quantity); i++ {
+		if _, exists := slave.Coils[startAddress+uint16(i)]; !exists {
+			log.Printf("Illegal data address: %d", startAddress+uint16(i))
+			return s.exceptionResponse(tcpADU.ToBytes(), 0x02), nil // Illegal Data Address
+		}
+	}
 
-    for i := 0; i < int(quantity); i++ {
-        if !slave.LegalCoilsAddress[startAddress+uint16(i)] {
-            return s.exceptionResponse(pduBytes, 0x02), nil // Illegal Data Address
-        }
-        if slave.Coils[startAddress+uint16(i)] {
-            responseData[i/8] |= 1 << (i % 8)
-        }
-    }
+	// Prepare response data
+	byteCount := (quantity + 7) / 8
+	responseData := make([]byte, byteCount)
+	for i := 0; i < int(quantity); i++ {
+		if slave.Coils[startAddress+uint16(i)] {
+			responseData[i/8] |= 1 << (i % 8)
+		}
+	}
 
-    // Create the response PDU
-    responsePDU := pdu.NewPDUReadResponse(0x01, responseData)
+	// Create the response PDU
+	responsePDU := pdu.NewPDUReadResponse(0x01, responseData)
+	responseADU := adu.NewTCPADU(tcpADU.TransactionID, tcpADU.UnitID, responsePDU.ToBytes())
 
-    return responsePDU.ToBytes(), nil
+	return responseADU.ToBytes(), nil
 }
 
 // handleReadDiscreteInputs handles the Read Discrete Inputs function
-func (s *TCPServer) handleReadDiscreteInputs(slave *Slave, pduBytes []byte) ([]byte, error) {
-    // Parse the PDU
-    pduRead := &pdu.PDU_Read{}
-    pduRead.FromBytes(pduBytes)
+func (s *TCPServer) handleReadDiscreteInputs(slave *Slave, tcpADU *adu.TCPADU) ([]byte, error) {
+	// Parse the PDU
+	pduRead := &pdu.PDU_Read{}
+	pduRead.FromBytes(tcpADU.PDU)
 
-    startAddress := pduRead.StartingAddress
-    quantity := pduRead.Quantity
+	startAddress := pduRead.StartingAddress
+	quantity := pduRead.Quantity
 
-    // Validate request
-    if startAddress+quantity > 65535 || !slave.LegalDiscreteInputsAddress[startAddress] {
-        return s.exceptionResponse(pduBytes, 0x02), nil // Illegal Data Address
-    }
+	// Validate request
+	if startAddress+quantity > 65535 {
+		return s.exceptionResponse(tcpADU.ToBytes(), 0x02), nil // Illegal Data Address
+	}
 
-    // Prepare response data
-    byteCount := (quantity + 7) / 8
-    responseData := make([]byte, byteCount)
+	for i := 0; i < int(quantity); i++ {
+		if _, exists := slave.DiscreteInputs[startAddress+uint16(i)]; !exists {
+			return s.exceptionResponse(tcpADU.ToBytes(), 0x02), nil // Illegal Data Address
+		}
+	}
 
-    for i := 0; i < int(quantity); i++ {
-        if !slave.LegalDiscreteInputsAddress[startAddress+uint16(i)] {
-            return s.exceptionResponse(pduBytes, 0x02), nil // Illegal Data Address
-        }
-        if slave.DiscreteInputs[startAddress+uint16(i)] {
-            responseData[i/8] |= 1 << (i % 8)
-        }
-    }
+	// Prepare response data
+	byteCount := (quantity + 7) / 8
+	responseData := make([]byte, byteCount)
+	for i := 0; i < int(quantity); i++ {
+		if slave.DiscreteInputs[startAddress+uint16(i)] {
+			responseData[i/8] |= 1 << (i % 8)
+		}
+	}
+	// Create the response PDU
+	responsePDU := pdu.NewPDUReadResponse(0x02, responseData)
+	responseADU := adu.NewTCPADU(tcpADU.TransactionID, tcpADU.UnitID, responsePDU.ToBytes())
 
-    // Create the response PDU
-    responsePDU := pdu.NewPDUReadResponse(0x02, responseData)
-
-    return responsePDU.ToBytes(), nil
+	return responseADU.ToBytes(), nil
 }
 
 // handleReadHoldingRegisters handles the Read Holding Registers function
-func (s *TCPServer) hanldeReadHoldingRegisters(slave *Slave, pduBytes []byte) ([]byte, error) {
-    // Parse the PDU
-    pduRead := &pdu.PDU_Read{}
-    pduRead.FromBytes(pduBytes)
+func (s *TCPServer) hanldeReadHoldingRegisters(slave *Slave, tcpADU *adu.TCPADU) ([]byte, error) {
+	// Parse the PDU
+	pduRead := &pdu.PDU_Read{}
+	pduRead.FromBytes(tcpADU.PDU)
 
-    startAddress := pduRead.StartingAddress
-    quantity := pduRead.Quantity
+	startAddress := pduRead.StartingAddress
+	quantity := pduRead.Quantity
 
-    // Validate request
-    if startAddress+quantity > 65535 || !slave.LegalHoldingRegistersAddress[startAddress] {
-        return s.exceptionResponse(pduBytes, 0x02), nil // Illegal Data Address
-    }
+	// Validate request
+	if startAddress+quantity > 65535 {
+		return s.exceptionResponse(tcpADU.ToBytes(), 0x02), nil // Illegal Data Address
+	}
 
-    // Prepare response data
-    responseData := make([]byte, 2*quantity)
+	for i := 0; i < int(quantity); i++ {
+		if _, exists := slave.HoldingRegisters[startAddress+uint16(i)]; !exists {
+			return s.exceptionResponse(tcpADU.ToBytes(), 0x02), nil // Illegal Data Address
+		}
+	}
 
-    for i := 0; i < int(quantity); i++ {
-        if !slave.LegalHoldingRegistersAddress[startAddress+uint16(i)] {
-            return s.exceptionResponse(pduBytes, 0x02), nil // Illegal Data Address
-        }
-        value := slave.HoldingRegisters[startAddress+uint16(i)]
-        binary.BigEndian.PutUint16(responseData[2*i:], value)
-    }
+	// Prepare response data
+	responseData := make([]byte, 2*quantity)
 
-    // Create the response PDU
-    responsePDU := pdu.NewPDUReadResponse(0x03, responseData)
+	for i := 0; i < int(quantity); i++ {
+		value := slave.HoldingRegisters[startAddress+uint16(i)]
+		binary.BigEndian.PutUint16(responseData[2*i:], value)
+	}
+	// Create the response PDU
+	responsePDU := pdu.NewPDUReadResponse(0x03, responseData)
+	responseADU := adu.NewTCPADU(tcpADU.TransactionID, tcpADU.UnitID, responsePDU.ToBytes())
 
-    return responsePDU.ToBytes(), nil
+	return responseADU.ToBytes(), nil
 }
 
 // handleReadInputRegisters handles the Read Input Registers function
-func (s *TCPServer) handleReadInputRegisters(slave *Slave, pduBytes []byte) ([]byte, error) {
-    // Parse the PDU
-    pduRead := &pdu.PDU_Read{}
-    pduRead.FromBytes(pduBytes)
+func (s *TCPServer) handleReadInputRegisters(slave *Slave, tcpADU *adu.TCPADU) ([]byte, error) {
+	// Parse the PDU
+	pduRead := &pdu.PDU_Read{}
+	pduRead.FromBytes(tcpADU.PDU)
 
-    startAddress := pduRead.StartingAddress
-    quantity := pduRead.Quantity
+	startAddress := pduRead.StartingAddress
+	quantity := pduRead.Quantity
 
-    // Validate request
-    if startAddress+quantity > 65535 || !slave.LegalInputRegistersAddress[startAddress] {
-        return s.exceptionResponse(pduBytes, 0x02), nil // Illegal Data Address
-    }
+	// Validate request
+	if startAddress+quantity > 65535 {
+		return s.exceptionResponse(tcpADU.ToBytes(), 0x02), nil // Illegal Data Address
+	}
 
-    // Prepare response data
-    responseData := make([]byte, 2*quantity)
+	for i := 0; i < int(quantity); i++ {
+		if _, exists := slave.InputRegisters[startAddress+uint16(i)]; !exists {
+			return s.exceptionResponse(tcpADU.ToBytes(), 0x02), nil // Illegal Data Address
+		}
+	}
 
-    for i := 0; i < int(quantity); i++ {
-        if !slave.LegalInputRegistersAddress[startAddress+uint16(i)] {
-            return s.exceptionResponse(pduBytes, 0x02), nil // Illegal Data Address
-        }
-        value := slave.InputRegisters[startAddress+uint16(i)]
-        binary.BigEndian.PutUint16(responseData[2*i:], value)
-    }
+	// Prepare response data
+	responseData := make([]byte, 2*quantity)
+	for i := 0; i < int(quantity); i++ {
+		value := slave.InputRegisters[startAddress+uint16(i)]
+		binary.BigEndian.PutUint16(responseData[2*i:], value)
+	}
 
-    // Create the response PDU
-    responsePDU := pdu.NewPDUReadResponse(0x04, responseData)
+	// Create the response PDU
+	responsePDU := pdu.NewPDUReadResponse(0x04, responseData)
+	responseADU := adu.NewTCPADU(tcpADU.TransactionID, tcpADU.UnitID, responsePDU.ToBytes())
 
-    return responsePDU.ToBytes(), nil
+	return responseADU.ToBytes(), nil
 }
 
 // handleWriteSingleCoil handles the Write Single Coil function
-func (s *TCPServer) handleWriteSingleCoil(slave *Slave, pduBytes []byte) ([]byte, error) {
-    // Parse the PDU
-    pduWrite := &pdu.PDU_WriteSingleCoil{}
-    pduWrite.FromBytes(pduBytes)
+func (s *TCPServer) handleWriteSingleCoil(slave *Slave, tcpADU *adu.TCPADU) ([]byte, error) {
+	// Parse the PDU
+	pduWrite := &pdu.PDU_WriteSingleCoil{}
+	pduWrite.FromBytes(tcpADU.PDU)
 
-    address := pduWrite.OutputAddress
-    value := pduWrite.OutputValue
+	address := pduWrite.OutputAddress
+	value := pduWrite.OutputValue
 
-    // Validate address
-    if address >= 65535 || !slave.LegalCoilsAddress[address] {
-        return s.exceptionResponse(pduBytes, 0x02), nil // Illegal Data Address
-    }
+	// Validate address
+	if address >= 65535 {
+		return s.exceptionResponse(tcpADU.ToBytes(), 0x02), nil // Illegal Data Address
+	}
 
-    // Update coil value based on the PDU
-    if value == 0xFF00 {
-        slave.Coils[address] = true
-    } else if value == 0x0000 {
-        slave.Coils[address] = false
-    } else {
-        return s.exceptionResponse(pduBytes, 0x03), nil // Illegal Data Value
-    }
+	if _, exists := slave.Coils[address]; !exists {
+		return s.exceptionResponse(tcpADU.ToBytes(), 0x02), nil // Illegal Data Address
+	}
 
-    // The response is the same as the request for this function
-    return pduWrite.ToBytes(), nil
+	// Update coil value based on the PDU
+	if value == 0xFF00 {
+		slave.Coils[address] = true
+	} else if value == 0x0000 {
+		slave.Coils[address] = false
+	} else {
+		return s.exceptionResponse(tcpADU.ToBytes(), 0x03), nil // Illegal Data Value
+	}
+
+	// The response is the same as the request for this function
+	responseADU := adu.NewTCPADU(tcpADU.TransactionID, tcpADU.UnitID, pduWrite.ToBytes())
+	return responseADU.ToBytes(), nil
 }
 
 // handleWriteMultipleCoils handles the Write Multiple Coils function
-func (s *TCPServer) handleWriteMultipleCoils(slave *Slave, pduBytes []byte) ([]byte, error) {
-    // Parse the PDU
-    pduWrite := &pdu.PDU_WriteMultipleCoils{}
-    pduWrite.FromBytes(pduBytes)
+func (s *TCPServer) handleWriteMultipleCoils(slave *Slave, tcpADU *adu.TCPADU) ([]byte, error) {
+	// Parse the PDU
+	pduWrite := &pdu.PDU_WriteMultipleCoils{}
+	pduWrite.FromBytes(tcpADU.PDU)
 
-    startAddress := pduWrite.StartingAddress
-    quantity := pduWrite.QuantityOfOutputs
-    byteCount := pduWrite.ByteCount
+	startAddress := pduWrite.StartingAddress
+	quantity := pduWrite.QuantityOfOutputs
+	byteCount := pduWrite.ByteCount
 
-    // Validate the request
-    if int(byteCount) != len(pduWrite.OutputValues) || startAddress+quantity > 65535 || !slave.LegalCoilsAddress[startAddress] {
-        return s.exceptionResponse(pduBytes, 0x02), nil // Illegal Data Address
-    }
+	// Validate the request
+	if int(byteCount) != len(pduWrite.OutputValues) || startAddress+quantity > 65535 {
+		return s.exceptionResponse(tcpADU.ToBytes(), 0x02), nil // Illegal Data Address
+	}
 
-    // Update coils based on the PDU
-    for i := 0; i < int(quantity); i++ {
-        if !slave.LegalCoilsAddress[startAddress+uint16(i)] {
-            return s.exceptionResponse(pduBytes, 0x02), nil // Illegal Data Address
-        }
-        if pduWrite.OutputValues[i/8]&(1<<(i%8)) != 0 {
-            slave.Coils[startAddress+uint16(i)] = true
-        } else {
-            slave.Coils[startAddress+uint16(i)] = false
-        }
-    }
+	for i := 0; i < int(quantity); i++ {
+		if _, exists := slave.Coils[startAddress+uint16(i)]; !exists {
+			return s.exceptionResponse(tcpADU.ToBytes(), 0x02), nil // Illegal Data Address
+		}
+	}
 
-    // Create the response PDU
-    responsePDU := pdu.NewPDUWriteMultipleResponse(0x0F, startAddress, quantity)
+	for i := 0; i < int(quantity); i++ {
+		if pduWrite.OutputValues[i/8]&(1<<(i%8)) != 0 {
+			slave.Coils[startAddress+uint16(i)] = true
+		} else {
+			slave.Coils[startAddress+uint16(i)] = false
+		}
+	}
 
-    return responsePDU.ToBytes(), nil
+	// Create the response PDU
+	responsePDU := pdu.NewPDUWriteMultipleResponse(0x0F, startAddress, quantity)
+	responseADU := adu.NewTCPADU(tcpADU.TransactionID, tcpADU.UnitID, responsePDU.ToBytes())
+
+	return responseADU.ToBytes(), nil
 }
 
 // handleWriteSingleRegister handles the Write Single Register function
-func (s *TCPServer) handleWriteSingleRegister(slave *Slave, pduBytes []byte) ([]byte, error) {
-    // Parse the PDU
-    pduWrite := &pdu.PDU_WriteSingleRegister{}
-    pduWrite.FromBytes(pduBytes)
+func (s *TCPServer) handleWriteSingleRegister(slave *Slave, tcpADU *adu.TCPADU) ([]byte, error) {
+	// Parse the PDU
+	pduWrite := &pdu.PDU_WriteSingleRegister{}
+	pduWrite.FromBytes(tcpADU.PDU)
 
-    address := pduWrite.RegisterAddress
-    value := pduWrite.RegisterValue
+	address := pduWrite.RegisterAddress
+	value := pduWrite.RegisterValue
 
-    // Validate the address
-    if address >= 65535 || !slave.LegalHoldingRegistersAddress[address] {
-        return s.exceptionResponse(pduBytes, 0x02), nil // Illegal Data Address
-    }
+	// Validate the address
+	if address >= 65535 {
+		return s.exceptionResponse(tcpADU.ToBytes(), 0x02), nil // Illegal Data Address
+	}
+	if _, exists := slave.HoldingRegisters[address]; !exists {
+		return s.exceptionResponse(tcpADU.ToBytes(), 0x02), nil // Illegal Data Address
+	}
 
-    // Update the register with the new value
-    slave.HoldingRegisters[address] = value
+	// Update the register with the new value
+	slave.HoldingRegisters[address] = value
 
-    // The response is the same as the request for this function
-    return pduWrite.ToBytes(), nil
+	// The response is the same as the request for this function
+	responseADU := adu.NewTCPADU(tcpADU.TransactionID, tcpADU.UnitID, pduWrite.ToBytes())
+	return responseADU.ToBytes(), nil
 }
 
 // handleWriteMultipleRegisters handles the Write Multiple Registers function
-func (s *TCPServer) handleWriteMultipleRegisters(slave *Slave, pduBytes []byte) ([]byte, error) {
-    // Parse the PDU
-    pduWrite := &pdu.PDU_WriteMultipleRegisters{}
-    pduWrite.FromBytes(pduBytes)
+func (s *TCPServer) handleWriteMultipleRegisters(slave *Slave, tcpADU *adu.TCPADU) ([]byte, error) {
+	// Parse the PDU
+	pduWrite := &pdu.PDU_WriteMultipleRegisters{}
+	pduWrite.FromBytes(tcpADU.PDU)
 
-    startAddress := pduWrite.StartingAddress
-    quantity := pduWrite.QuantityOfOutputs
-    byteCount := pduWrite.ByteCount
+	startAddress := pduWrite.StartingAddress
+	quantity := pduWrite.QuantityOfOutputs
+	byteCount := pduWrite.ByteCount
 
-    // Validate the request
-    if int(byteCount) != len(pduWrite.OutputValues) || startAddress+quantity > 65535 || !slave.LegalHoldingRegistersAddress[startAddress] {
-        return s.exceptionResponse(pduBytes, 0x02), nil // Illegal Data Address
-    }
+	// Validate the request
+	if int(byteCount) != len(pduWrite.OutputValues) || startAddress+quantity > 65535 {
+		return s.exceptionResponse(tcpADU.ToBytes(), 0x02), nil // Illegal Data Address
+	}
 
-    // Update registers based on the PDU
-    for i := 0; i < int(quantity); i++ {
-        if !slave.LegalHoldingRegistersAddress[startAddress+uint16(i)] {
-            return s.exceptionResponse(pduBytes, 0x02), nil // Illegal Data Address
-        }
-        value := binary.BigEndian.Uint16(pduWrite.OutputValues[2*i:])
-        slave.HoldingRegisters[startAddress+uint16(i)] = value
-    }
+	// Update registers based on the PDU
+	for i := 0; i < int(quantity); i++ {
+		if _, exists := slave.HoldingRegisters[startAddress+uint16(i)]; !exists {
+			return s.exceptionResponse(tcpADU.ToBytes(), 0x02), nil // Illegal Data Address
+		}
+	}
 
-    // Create the response PDU
-    responsePDU := pdu.NewPDUWriteMultipleResponse(0x10, startAddress, quantity)
+	for i := 0; i < int(quantity); i++ {
+		value := binary.BigEndian.Uint16(pduWrite.OutputValues[2*i:])
+		slave.HoldingRegisters[startAddress+uint16(i)] = value
+	}
 
-    return responsePDU.ToBytes(), nil
+	// Create the response PDU
+	responsePDU := pdu.NewPDUWriteMultipleResponse(0x10, startAddress, quantity)
+
+	responseADU := adu.NewTCPADU(tcpADU.TransactionID, tcpADU.UnitID, responsePDU.ToBytes())
+	return responseADU.ToBytes(), nil
 }
 
 func (s *TCPServer) exceptionResponse(request []byte, exceptionCode byte) []byte {
-    // Extract the necessary fields from the request
-    transactionID := binary.BigEndian.Uint16(request[0:2])
-    protocolID := binary.BigEndian.Uint16(request[2:4])
-    unitID := request[6]
-    functionCode := request[7] | 0x80 // Set the highest bit to indicate an error
+	// Extract the necessary fields from the request
+	transactionID := binary.BigEndian.Uint16(request[0:2])
+	protocolID := binary.BigEndian.Uint16(request[2:4])
+	unitID := request[6]
+	functionCode := request[7] | 0x80 // Set the highest bit to indicate an error
 
-    // Create the exception PDU
-    exceptionPDU := []byte{functionCode, exceptionCode}
+	// Create the exception PDU
+	exceptionPDU := []byte{functionCode, exceptionCode}
 
-    // Create the exception ADU
-    exceptionADU := adu.NewTCPADU(transactionID, unitID, exceptionPDU)
-    exceptionADU.ProtocolID = protocolID
-    exceptionADU.Length = uint16(3) // Length of remaining bytes (Unit ID + Function Code + Exception Code)
+	// Create the exception ADU
+	exceptionADU := adu.NewTCPADU(transactionID, unitID, exceptionPDU)
+	exceptionADU.ProtocolID = protocolID
+	exceptionADU.Length = uint16(3) // Length of remaining bytes (Unit ID + Function Code + Exception Code)
 
-    return exceptionADU.ToBytes()
+	log.Printf("Exception ADU: %x", exceptionADU.ToBytes())
+	return exceptionADU.ToBytes()
 }

@@ -28,14 +28,9 @@ func startModbusSerialServer(t *testing.T) *server.SerialServer {
 	// Set legal addresses and initialize discrete inputs for the slave
 	slave := s.Slaves[1]
 	for i := 0; i < 65535; i++ {
-		slave.LegalCoilsAddress[i] = true
-		slave.LegalDiscreteInputsAddress[i] = true
-		slave.LegalHoldingRegistersAddress[i] = true
-		slave.LegalInputRegistersAddress[i] = true
-
 		// Initialize some discrete inputs for testing
 		if i%2 == 0 {
-			slave.DiscreteInputs[i] = true
+			slave.DiscreteInputs[uint16(i)] = true
 		}
 	}
 
