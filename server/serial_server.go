@@ -120,6 +120,7 @@ func (s *SerialServer) AddSlave(unitID byte) {
 	s.Slaves[unitID] = &Slave{}
 }
 
+// Start starts the server
 func (s *SerialServer) Start() error {
 	port, err := serial.OpenPort(s.SerialConfig)
 	if err != nil {
@@ -152,6 +153,7 @@ func (s *SerialServer) Start() error {
 	}
 }
 
+// getSlave gets the slave based on the unit ID
 func (s *SerialServer) getSlave(unitID byte) (*Slave, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -162,6 +164,7 @@ func (s *SerialServer) getSlave(unitID byte) (*Slave, error) {
 	return slave, nil
 }
 
+// processRequest processes the request
 func (s *SerialServer) processRequest(request []byte) ([]byte, error) {
 	// Parse the request as a Serial ADU
 	serialADU := &adu.SerialADU{}
@@ -180,21 +183,21 @@ func (s *SerialServer) processRequest(request []byte) ([]byte, error) {
 	var responsePDU []byte
 	switch serialADU.PDU[0] { // Function code is the first byte in PDU
 	case 0x01:
-		responsePDU, err = s.readCoils(slave, serialADU.PDU)
+		responsePDU, err = s.handleReadCoils(slave, serialADU.PDU)
 	case 0x02:
-		responsePDU, err = s.readDiscreteInputs(slave, serialADU.PDU)
+		responsePDU, err = s.handleReadDiscreteInputs(slave, serialADU.PDU)
 	case 0x03:
-		responsePDU, err = s.readHoldingRegisters(slave, serialADU.PDU)
+		responsePDU, err = s.hanldeReadHoldingRegisters(slave, serialADU.PDU)
 	case 0x04:
-		responsePDU, err = s.readInputRegisters(slave, serialADU.PDU)
+		responsePDU, err = s.handleReadInputRegisters(slave, serialADU.PDU)
 	case 0x05:
-		responsePDU, err = s.writeSingleCoil(slave, serialADU.PDU)
+		responsePDU, err = s.handleWriteSingleCoil(slave, serialADU.PDU)
 	case 0x06:
-		responsePDU, err = s.writeSingleRegister(slave, serialADU.PDU)
+		responsePDU, err = s.handleWriteSingleRegister(slave, serialADU.PDU)
 	case 0x0F:
-		responsePDU, err = s.writeMultipleCoils(slave, serialADU.PDU)
+		responsePDU, err = s.handleWriteMultipleCoils(slave, serialADU.PDU)
 	case 0x10:
-		responsePDU, err = s.writeMultipleRegisters(slave, serialADU.PDU)
+		responsePDU, err = s.handleWriteMultipleRegisters(slave, serialADU.PDU)
 	default:
 		return s.exceptionResponse(request, 0x01), nil // Illegal Function
 	}
@@ -208,7 +211,8 @@ func (s *SerialServer) processRequest(request []byte) ([]byte, error) {
 	return responseADU.ToBytes(), nil
 }
 
-func (s *SerialServer) readCoils(slave *Slave, pduBytes []byte) ([]byte, error) {
+// handleReadCoils handles the Read Coils function
+func (s *SerialServer) handleReadCoils(slave *Slave, pduBytes []byte) ([]byte, error) {
 	pduRead := &pdu.PDU_Read{}
 	pduRead.FromBytes(pduBytes)
 
@@ -235,7 +239,8 @@ func (s *SerialServer) readCoils(slave *Slave, pduBytes []byte) ([]byte, error) 
 	return responsePDU.ToBytes(), nil
 }
 
-func (s *SerialServer) readDiscreteInputs(slave *Slave, pduBytes []byte) ([]byte, error) {
+// handleReadDiscreteInputs handles the Read Discrete Inputs function
+func (s *SerialServer) handleReadDiscreteInputs(slave *Slave, pduBytes []byte) ([]byte, error) {
 	pduRead := &pdu.PDU_Read{}
 	pduRead.FromBytes(pduBytes)
 
@@ -262,7 +267,8 @@ func (s *SerialServer) readDiscreteInputs(slave *Slave, pduBytes []byte) ([]byte
 	return responsePDU.ToBytes(), nil
 }
 
-func (s *SerialServer) readHoldingRegisters(slave *Slave, pduBytes []byte) ([]byte, error) {
+// hanldeReadHoldingRegisters handles the Read Holding Registers function
+func (s *SerialServer) hanldeReadHoldingRegisters(slave *Slave, pduBytes []byte) ([]byte, error) {
 	pduRead := &pdu.PDU_Read{}
 	pduRead.FromBytes(pduBytes)
 
@@ -287,7 +293,8 @@ func (s *SerialServer) readHoldingRegisters(slave *Slave, pduBytes []byte) ([]by
 	return responsePDU.ToBytes(), nil
 }
 
-func (s *SerialServer) readInputRegisters(slave *Slave, pduBytes []byte) ([]byte, error) {
+// handleReadInputRegisters handles the Read Input Registers function
+func (s *SerialServer) handleReadInputRegisters(slave *Slave, pduBytes []byte) ([]byte, error) {
 	pduRead := &pdu.PDU_Read{}
 	pduRead.FromBytes(pduBytes)
 
@@ -312,7 +319,8 @@ func (s *SerialServer) readInputRegisters(slave *Slave, pduBytes []byte) ([]byte
 	return responsePDU.ToBytes(), nil
 }
 
-func (s *SerialServer) writeSingleCoil(slave *Slave, pduBytes []byte) ([]byte, error) {
+// handleWriteSingleCoil handles the Write Single Coil function
+func (s *SerialServer) handleWriteSingleCoil(slave *Slave, pduBytes []byte) ([]byte, error) {
 	pduWrite := &pdu.PDU_WriteSingleCoil{}
 	pduWrite.FromBytes(pduBytes)
 
@@ -334,7 +342,8 @@ func (s *SerialServer) writeSingleCoil(slave *Slave, pduBytes []byte) ([]byte, e
 	return pduWrite.ToBytes(), nil
 }
 
-func (s *SerialServer) writeMultipleCoils(slave *Slave, pduBytes []byte) ([]byte, error) {
+// handleWriteMultipleCoils handles the Write Multiple Coils function
+func (s *SerialServer) handleWriteMultipleCoils(slave *Slave, pduBytes []byte) ([]byte, error) {
 	pduWrite := &pdu.PDU_WriteMultipleCoils{}
 	pduWrite.FromBytes(pduBytes)
 
@@ -361,7 +370,8 @@ func (s *SerialServer) writeMultipleCoils(slave *Slave, pduBytes []byte) ([]byte
 	return responsePDU.ToBytes(), nil
 }
 
-func (s *SerialServer) writeSingleRegister(slave *Slave, pduBytes []byte) ([]byte, error) {
+// handleWriteSingleRegister handles the Write Single Register function
+func (s *SerialServer) handleWriteSingleRegister(slave *Slave, pduBytes []byte) ([]byte, error) {
 	pduWrite := &pdu.PDU_WriteSingleRegister{}
 	pduWrite.FromBytes(pduBytes)
 
@@ -377,7 +387,8 @@ func (s *SerialServer) writeSingleRegister(slave *Slave, pduBytes []byte) ([]byt
 	return pduWrite.ToBytes(), nil
 }
 
-func (s *SerialServer) writeMultipleRegisters(slave *Slave, pduBytes []byte) ([]byte, error) {
+// handleWriteMultipleRegisters handles the Write Multiple Registers function
+func (s *SerialServer) handleWriteMultipleRegisters(slave *Slave, pduBytes []byte) ([]byte, error) {
 	pduWrite := &pdu.PDU_WriteMultipleRegisters{}
 	pduWrite.FromBytes(pduBytes)
 
@@ -401,6 +412,7 @@ func (s *SerialServer) writeMultipleRegisters(slave *Slave, pduBytes []byte) ([]
 	return responsePDU.ToBytes(), nil
 }
 
+// exceptionResponse creates an exception response
 func (s *SerialServer) exceptionResponse(request []byte, exceptionCode byte) []byte {
 	serialADU := &adu.SerialADU{}
 	err := serialADU.FromBytes(request)

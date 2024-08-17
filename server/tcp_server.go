@@ -258,21 +258,21 @@ func (s *TCPServer) processRequest(request []byte) ([]byte, error) {
 	var responsePDU []byte
     switch tcpADU.PDU[0] { // Function code is the first byte in PDU
     case 0x01:
-        responsePDU, err = s.readCoils(slave, tcpADU.PDU)
+        responsePDU, err = s.handleReadCoils(slave, tcpADU.PDU)
     case 0x02:
-        responsePDU, err = s.readDiscreteInputs(slave, tcpADU.PDU)
+        responsePDU, err = s.handleReadDiscreteInputs(slave, tcpADU.PDU)
     case 0x03:
-        responsePDU, err = s.readHoldingRegisters(slave, tcpADU.PDU)
+        responsePDU, err = s.hanldeReadHoldingRegisters(slave, tcpADU.PDU)
     case 0x04:
-        responsePDU, err = s.readInputRegisters(slave, tcpADU.PDU)
+        responsePDU, err = s.handleReadInputRegisters(slave, tcpADU.PDU)
     case 0x05:
-        responsePDU, err = s.writeSingleCoil(slave, tcpADU.PDU)
+        responsePDU, err = s.handleWriteSingleCoil(slave, tcpADU.PDU)
     case 0x06:
-        responsePDU, err = s.writeSingleRegister(slave, tcpADU.PDU)
+        responsePDU, err = s.handleWriteSingleRegister(slave, tcpADU.PDU)
     case 0x0F:
-        responsePDU, err = s.writeMultipleCoils(slave, tcpADU.PDU)
+        responsePDU, err = s.handleWriteMultipleCoils(slave, tcpADU.PDU)
     case 0x10:
-        responsePDU, err = s.writeMultipleRegisters(slave, tcpADU.PDU)
+        responsePDU, err = s.handleWriteMultipleRegisters(slave, tcpADU.PDU)
     default:
         return s.exceptionResponse(request, 0x01), nil // Illegal Function
     }
@@ -287,7 +287,8 @@ func (s *TCPServer) processRequest(request []byte) ([]byte, error) {
     return responseADU.ToBytes(), nil
 }
 
-func (s *TCPServer) readCoils(slave *Slave, pduBytes []byte) ([]byte, error) {
+// handleReadCoils handles the Read Coils function
+func (s *TCPServer) handleReadCoils(slave *Slave, pduBytes []byte) ([]byte, error) {
     // Parse the PDU
     pduRead := &pdu.PDU_Read{}
     pduRead.FromBytes(pduBytes)
@@ -319,7 +320,8 @@ func (s *TCPServer) readCoils(slave *Slave, pduBytes []byte) ([]byte, error) {
     return responsePDU.ToBytes(), nil
 }
 
-func (s *TCPServer) readDiscreteInputs(slave *Slave, pduBytes []byte) ([]byte, error) {
+// handleReadDiscreteInputs handles the Read Discrete Inputs function
+func (s *TCPServer) handleReadDiscreteInputs(slave *Slave, pduBytes []byte) ([]byte, error) {
     // Parse the PDU
     pduRead := &pdu.PDU_Read{}
     pduRead.FromBytes(pduBytes)
@@ -351,7 +353,8 @@ func (s *TCPServer) readDiscreteInputs(slave *Slave, pduBytes []byte) ([]byte, e
     return responsePDU.ToBytes(), nil
 }
 
-func (s *TCPServer) readHoldingRegisters(slave *Slave, pduBytes []byte) ([]byte, error) {
+// handleReadHoldingRegisters handles the Read Holding Registers function
+func (s *TCPServer) hanldeReadHoldingRegisters(slave *Slave, pduBytes []byte) ([]byte, error) {
     // Parse the PDU
     pduRead := &pdu.PDU_Read{}
     pduRead.FromBytes(pduBytes)
@@ -381,7 +384,8 @@ func (s *TCPServer) readHoldingRegisters(slave *Slave, pduBytes []byte) ([]byte,
     return responsePDU.ToBytes(), nil
 }
 
-func (s *TCPServer) readInputRegisters(slave *Slave, pduBytes []byte) ([]byte, error) {
+// handleReadInputRegisters handles the Read Input Registers function
+func (s *TCPServer) handleReadInputRegisters(slave *Slave, pduBytes []byte) ([]byte, error) {
     // Parse the PDU
     pduRead := &pdu.PDU_Read{}
     pduRead.FromBytes(pduBytes)
@@ -411,7 +415,8 @@ func (s *TCPServer) readInputRegisters(slave *Slave, pduBytes []byte) ([]byte, e
     return responsePDU.ToBytes(), nil
 }
 
-func (s *TCPServer) writeSingleCoil(slave *Slave, pduBytes []byte) ([]byte, error) {
+// handleWriteSingleCoil handles the Write Single Coil function
+func (s *TCPServer) handleWriteSingleCoil(slave *Slave, pduBytes []byte) ([]byte, error) {
     // Parse the PDU
     pduWrite := &pdu.PDU_WriteSingleCoil{}
     pduWrite.FromBytes(pduBytes)
@@ -437,7 +442,8 @@ func (s *TCPServer) writeSingleCoil(slave *Slave, pduBytes []byte) ([]byte, erro
     return pduWrite.ToBytes(), nil
 }
 
-func (s *TCPServer) writeMultipleCoils(slave *Slave, pduBytes []byte) ([]byte, error) {
+// handleWriteMultipleCoils handles the Write Multiple Coils function
+func (s *TCPServer) handleWriteMultipleCoils(slave *Slave, pduBytes []byte) ([]byte, error) {
     // Parse the PDU
     pduWrite := &pdu.PDU_WriteMultipleCoils{}
     pduWrite.FromBytes(pduBytes)
@@ -469,7 +475,8 @@ func (s *TCPServer) writeMultipleCoils(slave *Slave, pduBytes []byte) ([]byte, e
     return responsePDU.ToBytes(), nil
 }
 
-func (s *TCPServer) writeSingleRegister(slave *Slave, pduBytes []byte) ([]byte, error) {
+// handleWriteSingleRegister handles the Write Single Register function
+func (s *TCPServer) handleWriteSingleRegister(slave *Slave, pduBytes []byte) ([]byte, error) {
     // Parse the PDU
     pduWrite := &pdu.PDU_WriteSingleRegister{}
     pduWrite.FromBytes(pduBytes)
@@ -489,7 +496,8 @@ func (s *TCPServer) writeSingleRegister(slave *Slave, pduBytes []byte) ([]byte, 
     return pduWrite.ToBytes(), nil
 }
 
-func (s *TCPServer) writeMultipleRegisters(slave *Slave, pduBytes []byte) ([]byte, error) {
+// handleWriteMultipleRegisters handles the Write Multiple Registers function
+func (s *TCPServer) handleWriteMultipleRegisters(slave *Slave, pduBytes []byte) ([]byte, error) {
     // Parse the PDU
     pduWrite := &pdu.PDU_WriteMultipleRegisters{}
     pduWrite.FromBytes(pduBytes)
