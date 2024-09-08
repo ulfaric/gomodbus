@@ -16,14 +16,54 @@ type PDUReadResponse struct {
 	Data         []byte
 }
 
-// NewPDUReadResponse creates a new PDUReadResponse
-func NewPDUReadResponse(functionCode byte, data []byte) *PDUReadResponse {
+// NewPDUReadCoilsResponse creates a new PDUReadResponse for reading coils
+func NewPDUReadCoilsResponse(coils []bool) *PDUReadResponse {
+	coilsBytes := make([]byte, (len(coils)+7)/8)
+	for i, coil := range coils {
+		if coil {
+			coilsBytes[i/8] |= 1 << (i % 8)
+		}
+	}
 	return &PDUReadResponse{
-		FunctionCode: functionCode,
-		ByteCount:    byte(len(data)),
-		Data:         data,
+		FunctionCode: gomodbus.ReadCoil,
+		ByteCount:    byte(len(coilsBytes)),
+		Data:         coilsBytes,
 	}
 }
+
+// NewPDUReadDiscreteInputsResponse creates a new PDUReadResponse for reading discrete inputs
+func NewPDUReadDiscreteInputsResponse(inputs []bool) *PDUReadResponse {
+	inputsBytes := make([]byte, (len(inputs)+7)/8)
+	for i, input := range inputs {
+		if input {
+			inputsBytes[i/8] |= 1 << (i % 8)
+		}
+	}
+	return &PDUReadResponse{
+		FunctionCode: gomodbus.ReadDiscreteInput,
+		ByteCount:    byte(len(inputsBytes)),
+		Data:         inputsBytes,
+	}
+}
+
+// NewPDUReadHoldingRegistersResponse creates a new PDUReadResponse for reading holding registers
+func NewPDUReadHoldingRegistersResponse(registers []byte) *PDUReadResponse {
+	return &PDUReadResponse{
+		FunctionCode: gomodbus.ReadHoldingRegister,
+		ByteCount:    byte(len(registers)),
+		Data:         registers,
+	}
+}
+
+// NewPDUReadInputRegistersResponse creates a new PDUReadResponse for reading input registers
+func NewPDUReadInputRegistersResponse(registers []byte) *PDUReadResponse {
+	return &PDUReadResponse{
+		FunctionCode: gomodbus.ReadInputRegister,
+		ByteCount:    byte(len(registers)),
+		Data:         registers,
+	}
+}
+
 
 // ToBytes converts PDUReadResponse to bytes
 func (pdu *PDUReadResponse) ToBytes() []byte {
@@ -274,6 +314,50 @@ func (pdu *PDUWriteMultipleRegistersResponse) FromBytes(data []byte) error {
 	err = binary.Read(buffer, binary.BigEndian, &pdu.Quantity)
 	if err != nil {
 		gomodbus.Logger.Error("error parsing Quantity for PDUWriteMultipleRegistersResponse", zap.Error(err))
+		return err
+	}
+
+	return nil
+}
+
+// PDUErrorResponse represents a Modbus exception response
+type PDUErrorResponse struct {
+	FunctionCode  byte
+	ExceptionCode byte
+}
+
+// NewPDUErrorResponse creates a new PDUErrorResponse
+func NewPDUErrorResponse(functionCode, exceptionCode byte) *PDUErrorResponse {
+	return &PDUErrorResponse{
+		FunctionCode:  functionCode | 0x80, // Set the MSB to indicate an exception
+		ExceptionCode: exceptionCode,
+	}
+}
+
+// ToBytes converts PDUErrorResponse to bytes
+func (pdu *PDUErrorResponse) ToBytes() []byte {
+	buffer := new(bytes.Buffer)
+	buffer.WriteByte(pdu.FunctionCode)
+	buffer.WriteByte(pdu.ExceptionCode)
+	return buffer.Bytes()
+}
+
+// FromBytes parses bytes into PDUErrorResponse
+func (pdu *PDUErrorResponse) FromBytes(data []byte) error {
+	buffer := bytes.NewBuffer(data)
+	var err error
+
+	// Read FunctionCode
+	pdu.FunctionCode, err = buffer.ReadByte()
+	if err != nil {
+		gomodbus.Logger.Error("error parsing FunctionCode for PDUErrorResponse", zap.Error(err))
+		return err
+	}
+
+	// Read ExceptionCode
+	pdu.ExceptionCode, err = buffer.ReadByte()
+	if err != nil {
+		gomodbus.Logger.Error("error parsing ExceptionCode for PDUErrorResponse", zap.Error(err))
 		return err
 	}
 
