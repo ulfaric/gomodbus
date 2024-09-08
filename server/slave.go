@@ -6,3 +6,4 @@ type Slave struct {
 	HoldingRegisters             map[uint16]uint16
 	InputRegisters               map[uint16]uint16
 }
+

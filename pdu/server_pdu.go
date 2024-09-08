@@ -4,23 +4,29 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
+
+	"github.com/ulfaric/gomodbus"
+	"go.uber.org/zap"
 )
 
-type PDU_ReadResponse struct {
+// PDUReadResponse represents a response for a read request
+type PDUReadResponse struct {
 	FunctionCode byte
 	ByteCount    byte
 	Data         []byte
 }
 
-func NewPDUReadResponse(functionCode byte, data []byte) *PDU_ReadResponse {
-	return &PDU_ReadResponse{
+// NewPDUReadResponse creates a new PDUReadResponse
+func NewPDUReadResponse(functionCode byte, data []byte) *PDUReadResponse {
+	return &PDUReadResponse{
 		FunctionCode: functionCode,
 		ByteCount:    byte(len(data)),
 		Data:         data,
 	}
 }
 
-func (pdu *PDU_ReadResponse) ToBytes() []byte {
+// ToBytes converts PDUReadResponse to bytes
+func (pdu *PDUReadResponse) ToBytes() []byte {
 	buffer := new(bytes.Buffer)
 	buffer.WriteByte(pdu.FunctionCode)
 	buffer.WriteByte(pdu.ByteCount)
@@ -28,111 +34,247 @@ func (pdu *PDU_ReadResponse) ToBytes() []byte {
 	return buffer.Bytes()
 }
 
-func (pdu *PDU_ReadResponse) FromBytes(data []byte) error {
+// FromBytes parses bytes into PDUReadResponse
+func (pdu *PDUReadResponse) FromBytes(data []byte) error {
 	buffer := bytes.NewBuffer(data)
 	var err error
 
+	// Read FunctionCode
 	pdu.FunctionCode, err = buffer.ReadByte()
 	if err != nil {
-		return fmt.Errorf("failed to read FunctionCode: %v", err)
+		gomodbus.Logger.Error("error parsing FunctionCode for PDUReadResponse", zap.Error(err))
+		return err
 	}
 
+	// Read ByteCount
 	pdu.ByteCount, err = buffer.ReadByte()
 	if err != nil {
-		return fmt.Errorf("failed to read ByteCount: %v", err)
+		gomodbus.Logger.Error("error parsing ByteCount for PDUReadResponse", zap.Error(err))
+		return err
 	}
 
+	// Read Data
 	pdu.Data = buffer.Bytes()
 	if len(pdu.Data) != int(pdu.ByteCount) {
+		gomodbus.Logger.Sugar().Errorf("data length mismatch, expected %d, got %d", pdu.ByteCount, len(pdu.Data))
 		return fmt.Errorf("data length mismatch, expected %d, got %d", pdu.ByteCount, len(pdu.Data))
 	}
 
 	return nil
 }
 
-type PDU_WriteSingleResponse struct {
-	FunctionCode  byte
-	OutputAddress uint16
-	OutputValue   uint16
+// PDUWriteSingleCoilResponse represents a response for a write single coil request
+type PDUWriteSingleCoilResponse struct {
+	FunctionCode byte
+	Address      uint16
+	Value        bool
 }
 
-func NewPDUWriteSingleResponse(functionCode byte, outputAddress, outputValue uint16) *PDU_WriteSingleResponse {
-	return &PDU_WriteSingleResponse{
-		FunctionCode:  functionCode,
-		OutputAddress: outputAddress,
-		OutputValue:   outputValue,
+// NewWriteSingleCoilResponse creates a new PDUWriteSingleCoilResponse
+func NewWriteSingleCoilResponse(address uint16, value bool) *PDUWriteSingleCoilResponse {
+	return &PDUWriteSingleCoilResponse{
+		FunctionCode: gomodbus.WriteSingleCoil,
+		Address:      address,
+		Value:        value,
 	}
 }
 
-func (pdu *PDU_WriteSingleResponse) ToBytes() []byte {
+// ToBytes converts PDUWriteSingleCoilResponse to bytes
+func (pdu *PDUWriteSingleCoilResponse) ToBytes() []byte {
 	buffer := new(bytes.Buffer)
 	buffer.WriteByte(pdu.FunctionCode)
-	binary.Write(buffer, binary.BigEndian, pdu.OutputAddress)
-	binary.Write(buffer, binary.BigEndian, pdu.OutputValue)
+	binary.Write(buffer, binary.BigEndian, pdu.Address)
+	if pdu.Value {
+		binary.Write(buffer, binary.BigEndian, uint16(0xFF00))
+	} else {
+		binary.Write(buffer, binary.BigEndian, uint16(0x0000))
+	}
 	return buffer.Bytes()
 }
 
-func (pdu *PDU_WriteSingleResponse) FromBytes(data []byte) error {
+// FromBytes parses bytes into PDUWriteSingleCoilResponse
+func (pdu *PDUWriteSingleCoilResponse) FromBytes(data []byte) error {
 	buffer := bytes.NewBuffer(data)
 	var err error
 
+	// Read FunctionCode
 	pdu.FunctionCode, err = buffer.ReadByte()
 	if err != nil {
-		return fmt.Errorf("failed to read FunctionCode: %v", err)
+		gomodbus.Logger.Error("error parsing FunctionCode for PDUWriteSingleCoilResponse", zap.Error(err))
+		return err
 	}
 
-	err = binary.Read(buffer, binary.BigEndian, &pdu.OutputAddress)
+	// Read Address
+	err = binary.Read(buffer, binary.BigEndian, &pdu.Address)
 	if err != nil {
-		return fmt.Errorf("failed to read OutputAddress: %v", err)
+		gomodbus.Logger.Error("error parsing Address for PDUWriteSingleCoilResponse", zap.Error(err))
+		return err
 	}
 
-	err = binary.Read(buffer, binary.BigEndian, &pdu.OutputValue)
+	// Read Value
+	var coilValue uint16
+	err = binary.Read(buffer, binary.BigEndian, &coilValue)
 	if err != nil {
-		return fmt.Errorf("failed to read OutputValue: %v", err)
+		gomodbus.Logger.Error("error parsing coil value for PDUWriteSingleCoilResponse", zap.Error(err))
+		return err
+	}
+	pdu.Value = coilValue == 0xFF00
+
+	return nil
+}
+
+// PDUWriteMultipleCoilsResponse represents a response for a write multiple coils request
+type PDUWriteMultipleCoilsResponse struct {
+	FunctionCode byte
+	Address      uint16
+	Quantity     uint16
+}
+
+// NewWriteMultipleCoilsResponse creates a new PDUWriteMultipleCoilsResponse
+func NewWriteMultipleCoilsResponse(address, quantity uint16) *PDUWriteMultipleCoilsResponse {
+	return &PDUWriteMultipleCoilsResponse{
+		FunctionCode: gomodbus.WriteMultipleCoils,
+		Address:      address,
+		Quantity:     quantity,
+	}
+}
+
+// ToBytes converts PDUWriteMultipleCoilsResponse to bytes
+func (pdu *PDUWriteMultipleCoilsResponse) ToBytes() []byte {
+	buffer := new(bytes.Buffer)
+	buffer.WriteByte(pdu.FunctionCode)
+	binary.Write(buffer, binary.BigEndian, pdu.Address)
+	binary.Write(buffer, binary.BigEndian, pdu.Quantity)
+	return buffer.Bytes()
+}
+
+// FromBytes parses bytes into PDUWriteMultipleCoilsResponse
+func (pdu *PDUWriteMultipleCoilsResponse) FromBytes(data []byte) error {
+	buffer := bytes.NewBuffer(data)
+	var err error
+
+	// Read FunctionCode
+	pdu.FunctionCode, err = buffer.ReadByte()
+	if err != nil {
+		gomodbus.Logger.Error("error parsing FunctionCode for PDUWriteMultipleCoilsResponse", zap.Error(err))
+		return err
+	}
+
+	// Read Address
+	err = binary.Read(buffer, binary.BigEndian, &pdu.Address)
+	if err != nil {
+		gomodbus.Logger.Error("error parsing Address for PDUWriteMultipleCoilsResponse", zap.Error(err))
+		return err
+	}
+
+	// Read Quantity
+	err = binary.Read(buffer, binary.BigEndian, &pdu.Quantity)
+	if err != nil {
+		gomodbus.Logger.Error("error parsing Quantity for PDUWriteMultipleCoilsResponse", zap.Error(err))
+		return err
 	}
 
 	return nil
 }
 
-type PDU_WriteMultipleResponse struct {
-	FunctionCode    byte
-	StartingAddress uint16
-	Quantity        uint16
+// PDUWriteSingleRegisterResponse represents a response for a write single register request
+type PDUWriteSingleRegisterResponse struct {
+	FunctionCode byte
+	Address      uint16
+	Value        []byte
 }
 
-func NewPDUWriteMultipleResponse(functionCode byte, startingAddress, quantity uint16) *PDU_WriteMultipleResponse {
-	return &PDU_WriteMultipleResponse{
-		FunctionCode:    functionCode,
-		StartingAddress: startingAddress,
-		Quantity:        quantity,
+// NewWriteSingleRegisterResponse creates a new PDUWriteSingleRegisterResponse
+func NewWriteSingleRegisterResponse(address uint16, value []byte) *PDUWriteSingleRegisterResponse {
+	return &PDUWriteSingleRegisterResponse{
+		FunctionCode: gomodbus.WriteSingleRegister,
+		Address:      address,
+		Value:        value,
 	}
 }
 
-func (pdu *PDU_WriteMultipleResponse) ToBytes() []byte {
+// ToBytes converts PDUWriteSingleRegisterResponse to bytes
+func (pdu *PDUWriteSingleRegisterResponse) ToBytes() []byte {
 	buffer := new(bytes.Buffer)
 	buffer.WriteByte(pdu.FunctionCode)
-	binary.Write(buffer, binary.BigEndian, pdu.StartingAddress)
+	binary.Write(buffer, binary.BigEndian, pdu.Address)
+	buffer.Write(pdu.Value)
+	return buffer.Bytes()
+}
+
+// FromBytes parses bytes into PDUWriteSingleRegisterResponse
+func (pdu *PDUWriteSingleRegisterResponse) FromBytes(data []byte) error {
+	buffer := bytes.NewBuffer(data)
+	var err error
+
+	// Read FunctionCode
+	pdu.FunctionCode, err = buffer.ReadByte()
+	if err != nil {
+		gomodbus.Logger.Error("error parsing FunctionCode for PDUWriteSingleRegisterResponse", zap.Error(err))
+		return err
+	}
+
+	// Read Address
+	err = binary.Read(buffer, binary.BigEndian, &pdu.Address)
+	if err != nil {
+		gomodbus.Logger.Error("error parsing Address for PDUWriteSingleRegisterResponse", zap.Error(err))
+		return err
+	}
+
+	// Read Value
+	pdu.Value = buffer.Bytes()
+	return nil
+}
+
+// PDUWriteMultipleRegistersResponse represents a response for a write multiple registers request
+type PDUWriteMultipleRegistersResponse struct {
+	FunctionCode byte
+	Address      uint16
+	Quantity     uint16
+}
+
+// NewWriteMultipleRegistersResponse creates a new PDUWriteMultipleRegistersResponse
+func NewWriteMultipleRegistersResponse(address, quantity uint16) *PDUWriteMultipleRegistersResponse {
+	return &PDUWriteMultipleRegistersResponse{
+		FunctionCode: gomodbus.WriteMultipleRegisters,
+		Address:      address,
+		Quantity:     quantity,
+	}
+}
+
+// ToBytes converts PDUWriteMultipleRegistersResponse to bytes
+func (pdu *PDUWriteMultipleRegistersResponse) ToBytes() []byte {
+	buffer := new(bytes.Buffer)
+	buffer.WriteByte(pdu.FunctionCode)
+	binary.Write(buffer, binary.BigEndian, pdu.Address)
 	binary.Write(buffer, binary.BigEndian, pdu.Quantity)
 	return buffer.Bytes()
 }
 
-func (pdu *PDU_WriteMultipleResponse) FromBytes(data []byte) error {
+// FromBytes parses bytes into PDUWriteMultipleRegistersResponse
+func (pdu *PDUWriteMultipleRegistersResponse) FromBytes(data []byte) error {
 	buffer := bytes.NewBuffer(data)
 	var err error
 
+	// Read FunctionCode
 	pdu.FunctionCode, err = buffer.ReadByte()
 	if err != nil {
-		return fmt.Errorf("failed to read FunctionCode: %v", err)
+		gomodbus.Logger.Error("error parsing FunctionCode for PDUWriteMultipleRegistersResponse", zap.Error(err))
+		return err
 	}
 
-	err = binary.Read(buffer, binary.BigEndian, &pdu.StartingAddress)
+	// Read Address
+	err = binary.Read(buffer, binary.BigEndian, &pdu.Address)
 	if err != nil {
-		return fmt.Errorf("failed to read StartingAddress: %v", err)
+		gomodbus.Logger.Error("error parsing Address for PDUWriteMultipleRegistersResponse", zap.Error(err))
+		return err
 	}
 
+	// Read Quantity
 	err = binary.Read(buffer, binary.BigEndian, &pdu.Quantity)
 	if err != nil {
-		return fmt.Errorf("failed to read Quantity: %v", err)
+		gomodbus.Logger.Error("error parsing Quantity for PDUWriteMultipleRegistersResponse", zap.Error(err))
+		return err
 	}
 
 	return nil

@@ -4,22 +4,25 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
+
+	"github.com/ulfaric/gomodbus"
+	"go.uber.org/zap"
 )
 
 type SerialADU struct {
-	Address byte
-	PDU     []byte
-	CRC     uint16
+	UnitID byte
+	PDU    []byte
+	CRC    uint16
 }
 
 func NewSerialADU(address byte, pdu []byte) *SerialADU {
 	adu := &SerialADU{
-		Address: address,
-		PDU:     pdu,
+		UnitID: address,
+		PDU:    pdu,
 	}
 
 	// Calculate CRC16 checksum for the ADU (Address + PDU)
-	adu.CRC = calculateCRC16(adu.Address, adu.PDU)
+	adu.CRC = calculateCRC16(adu.UnitID, adu.PDU)
 
 	return adu
 }
@@ -28,7 +31,7 @@ func (adu *SerialADU) ToBytes() []byte {
 	buffer := new(bytes.Buffer)
 
 	// Write Address
-	buffer.WriteByte(adu.Address)
+	buffer.WriteByte(adu.UnitID)
 
 	// Write PDU
 	buffer.Write(adu.PDU)
@@ -40,23 +43,24 @@ func (adu *SerialADU) ToBytes() []byte {
 }
 
 func (adu *SerialADU) FromBytes(data []byte) error {
-	if len(data) < 4 {
-		return fmt.Errorf("invalid ADU: data too short")
-	}
 
 	buffer := bytes.NewBuffer(data)
 
 	// Read Address
-	adu.Address, _ = buffer.ReadByte()
+	err := binary.Read(buffer, binary.BigEndian, &adu.UnitID)
+	if err != nil {
+		gomodbus.Logger.Error("error parsing UnitID for SerialADU", zap.Error(err))
+		return err
+	}
 
 	// Read PDU (all bytes except the last two, which are CRC)
-	adu.PDU = buffer.Next(len(data) - 3) // Exclude Address and CRC
+	adu.PDU = buffer.Next(len(data) - 3) // Exclude UnitID and CRC
 
 	// Read and validate CRC
 	var crc uint16
 	binary.Read(buffer, binary.LittleEndian, &crc)
 
-	expectedCRC := calculateCRC16(adu.Address, adu.PDU)
+	expectedCRC := calculateCRC16(adu.UnitID, adu.PDU)
 	if crc != expectedCRC {
 		return fmt.Errorf("CRC mismatch: expected 0x%X, got 0x%X", expectedCRC, crc)
 	}

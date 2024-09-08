@@ -4,6 +4,9 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
+
+	"github.com/ulfaric/gomodbus"
+	"go.uber.org/zap"
 )
 
 type TCPADU struct {
@@ -45,26 +48,31 @@ func (adu *TCPADU) FromBytes(data []byte) error {
 	buffer := bytes.NewBuffer(data)
 
 	if err := binary.Read(buffer, binary.BigEndian, &adu.TransactionID); err != nil {
+		gomodbus.Logger.Error("error parsing TransactionID for TCPADU", zap.Error(err))
 		return err
 	}
 
 	if err := binary.Read(buffer, binary.BigEndian, &adu.ProtocolID); err != nil {
+		gomodbus.Logger.Error("error parsing ProtocolID for TCPADU", zap.Error(err))
 		return err
 	}
 
 	if err := binary.Read(buffer, binary.BigEndian, &adu.Length); err != nil {
+		gomodbus.Logger.Error("error parsing Length for TCPADU", zap.Error(err))
 		return err
 	}
 
 	unitID, err := buffer.ReadByte()
 	if err != nil {
+		gomodbus.Logger.Error("error parsing UnitID for TCPADU", zap.Error(err))
 		return err
 	}
 	adu.UnitID = unitID
 
 	// Ensure the remaining bytes match the expected PDU length
 	if int(adu.Length-1) != buffer.Len() {
-		return fmt.Errorf("invalid PDU length")
+		gomodbus.Logger.Sugar().Errorf("invalid PDU length, expected %d, got %d", adu.Length-1, buffer.Len())
+		return fmt.Errorf("invalid PDU length, expected %d, got %d", adu.Length-1, buffer.Len())
 	}
 
 	adu.PDU = buffer.Bytes()
