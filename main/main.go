@@ -6,8 +6,8 @@ import (
 )
 
 func main() {
-	w := socket.NewSocket(1993)
-	err := w.Start()
+	s := socket.NewSocket(1993)
+	err := s.Start()
 	if err != nil {
 		log.Fatalf("Failed to start wrapper: %v", err)
 	}

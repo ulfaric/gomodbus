@@ -9,18 +9,24 @@ import (
 type SerialClient struct {
 	Port     string
 	BaudRate int
+	DataBits byte
+	Parity   serial.Parity
+	StopBits serial.StopBits
 	conn     *serial.Port
 }
 
-func NewSerialClient(port string, baudRate int) Client {
+func NewSerialClient(port string, baudRate int, dataBits byte, parity serial.Parity, stopBits serial.StopBits) Client {
 	return &SerialClient{
 		Port:     port,
 		BaudRate: baudRate,
+		DataBits: dataBits,
+		Parity:   parity,
+		StopBits: stopBits,
 	}
 }
 
 func (client *SerialClient) Connect() error {
-	c := &serial.Config{Name: client.Port, Baud: client.BaudRate}
+	c := &serial.Config{Name: client.Port, Baud: client.BaudRate, Parity: client.Parity, StopBits: client.StopBits, Size: client.DataBits}
 	conn, err := serial.OpenPort(c)
 	if err != nil {
 		gomodbus.Logger.Sugar().Errorf("failed to open serial port: %v", err)

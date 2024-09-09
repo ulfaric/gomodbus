@@ -10,14 +10,29 @@ enum Function {
     NEW_ASCII_SERVER = 2;
     START = 3;
     STOP = 4;
-    ADD_COIL = 5;
-    ADD_COILS = 6;
-    ADD_DISCRETE_INPUT = 7;
-    ADD_DISCRETE_INPUTS = 8;
-    ADD_HOLDING_REGISTER = 9;
-    ADD_HOLDING_REGISTERS = 10;
-    ADD_INPUT_REGISTER = 11;
-    ADD_INPUT_REGISTERS = 12;
+    ADD_COILS = 5;
+    DELETE_COILS = 6;
+    ADD_DISCRETE_INPUTS = 7;
+    DELETE_DISCRETE_INPUTS = 8;
+    ADD_HOLDING_REGISTERS = 9;
+    DELETE_HOLDING_REGISTERS = 10;
+    ADD_INPUT_REGISTERS = 11;
+    DELETE_INPUT_REGISTERS = 12;
+
+    NEW_TCP_CLIENT = 13;
+    NEW_RTU_CLIENT = 14;
+    NEW_ASCII_CLIENT = 15;
+    READ_COILS = 16;
+    READ_DISCRETE_INPUTS = 17;
+    READ_HOLDING_REGISTERS = 18;
+    READ_INPUT_REGISTERS = 19;
+    WRITE_SINGLE_COIL = 20;
+    WRITE_SINGLE_REGISTER = 21;
+    WRITE_MULTIPLE_COILS = 22;
+    WRITE_MULTIPLE_REGISTERS = 23;
+
+    ACK = 24;
+    NACK = 25;
 }
 
 // Header
@@ -38,12 +53,17 @@ message NewTCPServerRequest {
     string caFile = 8;
 }
 
-// Message for AddCoil function
-message AddCoilRequest {
-    uint32 unitID = 1;
-    uint32 address = 2;
-    bool value = 3;
+// Message for NewSerialServer function
+message NewSerialServerRequest {
+    string port = 1;
+    int32 baudRate = 2;
+    uint32 dataBits = 3;
+    string parity = 4;
+    string stopBits = 5;
+    string byteOrder = 6;
+    string wordOrder = 7;
 }
+
 
 // Message for AddCoils function
 message AddCoilsRequest {
@@ -52,11 +72,10 @@ message AddCoilsRequest {
     repeated bool values = 3;
 }
 
-// Message for AddDiscreteInput function
-message AddDiscreteInputRequest {
+// Message for DeleteCoils function
+message DeleteCoilsRequest {
     uint32 unitID = 1;
-    uint32 address = 2;
-    bool value = 3;
+    repeated uint32 addresses = 2;
 }
 
 // Message for AddDiscreteInputs function
@@ -66,11 +85,10 @@ message AddDiscreteInputsRequest {
     repeated bool values = 3;
 }
 
-// Message for AddHoldingRegister function
-message AddHoldingRegisterRequest {
+// Message for DeleteDiscreteInputs function
+message DeleteDiscreteInputsRequest {
     uint32 unitID = 1;
-    uint32 address = 2;
-    bytes value = 3;
+    repeated uint32 addresses = 2;
 }
 
 // Message for AddHoldingRegisters function
@@ -80,11 +98,10 @@ message AddHoldingRegistersRequest {
     repeated bytes values = 3;
 }
 
-// Message for AddInputRegister function
-message AddInputRegisterRequest {
+// Message for DeleteHoldingRegisters function
+message DeleteHoldingRegistersRequest {
     uint32 unitID = 1;
-    uint32 address = 2;
-    bytes value = 3;
+    repeated uint32 addresses = 2;
 }
 
 // Message for AddInputRegisters function
@@ -92,4 +109,106 @@ message AddInputRegistersRequest {
     uint32 unitID = 1;
     uint32 address = 2;
     repeated bytes values = 3;
+}
+
+// Message for DeleteInputRegisters function
+message DeleteInputRegistersRequest {
+    uint32 unitID = 1;
+    repeated uint32 addresses = 2;
+}
+
+
+// Message for NewTCPClient function
+message NewTCPClientRequest {
+    string host = 1;
+    uint32 port = 2;
+    bool useTLS = 3;
+    string certFile = 4;
+    string keyFile = 5;
+    string caFile = 6;
+}
+
+// Message for NewSerialClient function
+message NewSerialClientRequest {
+    string port = 1;
+    uint32 baudRate = 2;
+    uint32 dataBits = 3;
+    string parity = 4;
+    string stopBits = 5;
+}
+
+// Request and Response messages for ReadCoils
+message ReadCoilsRequest {
+    uint32 unitID = 1;
+    uint32 address = 2;
+    uint32 quantity = 3;
+}
+
+message ReadCoilsResponse {
+    repeated bool coils = 1;
+}
+
+// Request and Response messages for ReadDiscreteInputs
+message ReadDiscreteInputsRequest {
+    uint32 unitID = 1;
+    uint32 address = 2;
+    uint32 quantity = 3;
+}
+
+message ReadDiscreteInputsResponse {
+    repeated bool inputs = 1;
+}
+
+// Request and Response messages for ReadHoldingRegisters
+message ReadHoldingRegistersRequest {
+    uint32 unitID = 1;
+    uint32 address = 2;
+    uint32 quantity = 3;
+}
+
+message ReadHoldingRegistersResponse {
+    repeated bytes registers = 1;
+}
+
+// Request and Response messages for ReadInputRegisters
+message ReadInputRegistersRequest {
+    uint32 unitID = 1;
+    uint32 address = 2;
+    uint32 quantity = 3;
+}
+
+message ReadInputRegistersResponse {
+    repeated bytes registers = 1;
+}
+
+// Request and Response messages for WriteSingleCoil
+message WriteSingleCoilRequest {
+    uint32 unitID = 1;
+    uint32 address = 2;
+    bool value = 3;
+}
+
+
+// Request and Response messages for WriteMultipleCoils
+message WriteMultipleCoilsRequest {
+    uint32 unitID = 1;
+    uint32 address = 2;
+    repeated bool values = 3;
+}
+
+
+// Request and Response messages for WriteSingleRegister
+message WriteSingleRegisterRequest {
+    uint32 unitID = 1;
+    uint32 address = 2;
+    bytes value = 3;
+}
+
+
+// Request and Response messages for WriteMultipleRegisters
+message WriteMultipleRegistersRequest {
+    uint32 unitID = 1;
+    uint32 address = 2;
+    uint32 quantity = 3;
+    repeated bytes values = 4;
 }
