@@ -12,10 +12,43 @@ type Server interface {
 	Start() error
 	Stop() error
 	AddSlave(unitID byte)
+	GetSlave(unitID byte) (*Slave, error)
 	RemoveSlave(unitID byte)
 }
 
-func HandleReadCoils(slave *Slave, requestPDUBytes []byte) ([]byte, error) {
+func processRequest(requestPDUBytes []byte, slave *Slave) ([]byte, error) {
+	switch requestPDUBytes[0] {
+	case gomodbus.ReadCoil:
+		responsePDUBytes, err := handleReadCoils(slave, requestPDUBytes)
+		return responsePDUBytes, err
+	case gomodbus.ReadDiscreteInput:
+		responsePDUBytes, err := handleReadDiscreteInputs(slave, requestPDUBytes)
+		return responsePDUBytes, err
+	case gomodbus.ReadHoldingRegister:
+		responsePDUBytes, err := handleReadHoldingRegisters(slave, requestPDUBytes)
+		return responsePDUBytes, err
+	case gomodbus.ReadInputRegister:
+		responsePDUBytes, err := handleReadInputRegisters(slave, requestPDUBytes)
+		return responsePDUBytes, err
+	case gomodbus.WriteSingleCoil:
+		responsePDUBytes, err := handleWriteSingleCoil(slave, requestPDUBytes)
+		return responsePDUBytes, err
+	case gomodbus.WriteMultipleCoils:
+		responsePDUBytes, err := handleWriteMultipleCoils(slave, requestPDUBytes)
+		return responsePDUBytes, err
+	case gomodbus.WriteSingleRegister:
+		responsePDUBytes, err := handleWriteSingleRegister(slave, requestPDUBytes)
+		return responsePDUBytes, err
+	case gomodbus.WriteMultipleRegisters:
+		responsePDUBytes, err := handleWriteMultipleRegisters(slave, requestPDUBytes)
+		return responsePDUBytes, err
+	default:
+		responsePDU := pdu.NewPDUErrorResponse(requestPDUBytes[0], 0x07)
+		return responsePDU.ToBytes(), nil
+	}
+}
+
+func handleReadCoils(slave *Slave, requestPDUBytes []byte) ([]byte, error) {
 
 	var requestPDU pdu.PDURead
 	err := requestPDU.FromBytes(requestPDUBytes)
@@ -46,7 +79,7 @@ func HandleReadCoils(slave *Slave, requestPDUBytes []byte) ([]byte, error) {
 	return responsePDU.ToBytes(), nil
 }
 
-func HandleReadDiscreteInputs(slave *Slave, requestPDUBytes []byte) ([]byte, error) {
+func handleReadDiscreteInputs(slave *Slave, requestPDUBytes []byte) ([]byte, error) {
 	var requestPDU pdu.PDURead
 	err := requestPDU.FromBytes(requestPDUBytes)
 	if err != nil {
@@ -76,7 +109,7 @@ func HandleReadDiscreteInputs(slave *Slave, requestPDUBytes []byte) ([]byte, err
 	return responsePDU.ToBytes(), nil
 }
 
-func HandleReadHoldingRegisters(slave *Slave, requestPDUBytes []byte) ([]byte, error) {
+func handleReadHoldingRegisters(slave *Slave, requestPDUBytes []byte) ([]byte, error) {
 
 	var requestPDU pdu.PDURead
 	err := requestPDU.FromBytes(requestPDUBytes)
@@ -108,7 +141,7 @@ func HandleReadHoldingRegisters(slave *Slave, requestPDUBytes []byte) ([]byte, e
 	return responsePDU.ToBytes(), nil
 }
 
-func HandleReadInputRegisters(slave *Slave, requestPDUBytes []byte) ([]byte, error) {
+func handleReadInputRegisters(slave *Slave, requestPDUBytes []byte) ([]byte, error) {
 
 	var requestPDU pdu.PDURead
 	err := requestPDU.FromBytes(requestPDUBytes)
@@ -138,3 +171,124 @@ func HandleReadInputRegisters(slave *Slave, requestPDUBytes []byte) ([]byte, err
 	responsePDU := pdu.NewPDUReadInputRegistersResponse(registers.Bytes())
 	return responsePDU.ToBytes(), nil
 }
+
+func handleWriteSingleCoil(slave *Slave, requestPDUBytes []byte) ([]byte, error) {
+
+	var requestPDU pdu.PDUWriteSingleCoil
+	err := requestPDU.FromBytes(requestPDUBytes)
+	if err != nil {
+		gomodbus.Logger.Error("failed to parse request", zap.Error(err))
+		responsePDU := pdu.NewPDUErrorResponse(gomodbus.WriteSingleCoil, gomodbus.IllegalFunction)
+		return responsePDU.ToBytes(), nil
+	}
+
+	if requestPDU.FunctionCode != gomodbus.WriteSingleCoil {
+		gomodbus.Logger.Error("invalid function code for write single coil", zap.Error(err))
+		responsePDU := pdu.NewPDUErrorResponse(gomodbus.WriteSingleCoil, gomodbus.IllegalFunction)
+		return responsePDU.ToBytes(), nil
+	}
+
+	_, ok := slave.Coils[requestPDU.Address]
+	if !ok {
+		gomodbus.Logger.Error("coil not found", zap.Error(err))
+		responsePDU := pdu.NewPDUErrorResponse(gomodbus.WriteSingleCoil, gomodbus.IllegalDataAddress)
+		return responsePDU.ToBytes(), nil
+	}
+
+	slave.Coils[requestPDU.Address] = requestPDU.Value == 0xFF00
+
+	responsePDU := pdu.NewWriteSingleCoilResponse(requestPDU.Address, requestPDU.Value == 0xFF00)
+	return responsePDU.ToBytes(), nil
+}
+
+func handleWriteMultipleCoils(slave *Slave, requestPDUBytes []byte) ([]byte, error) {
+
+	var requestPDU pdu.PDUWriteMultipleCoils
+	err := requestPDU.FromBytes(requestPDUBytes)
+	if err != nil {
+		gomodbus.Logger.Error("failed to parse request", zap.Error(err))
+		responsePDU := pdu.NewPDUErrorResponse(gomodbus.WriteMultipleCoils, gomodbus.IllegalFunction)
+		return responsePDU.ToBytes(), nil
+	}
+
+	if requestPDU.FunctionCode != gomodbus.WriteMultipleCoils {
+		gomodbus.Logger.Error("invalid function code for write multiple coils", zap.Error(err))
+		responsePDU := pdu.NewPDUErrorResponse(gomodbus.WriteMultipleCoils, gomodbus.IllegalFunction)
+		return responsePDU.ToBytes(), nil
+	}
+
+	for i := 0; i < int(requestPDU.Quantity); i++ {
+		if _, ok := slave.Coils[requestPDU.StartingAddress+uint16(i)]; !ok {
+			gomodbus.Logger.Error("coil not found", zap.Error(err))
+			responsePDU := pdu.NewPDUErrorResponse(gomodbus.WriteMultipleCoils, gomodbus.IllegalDataAddress)
+			return responsePDU.ToBytes(), nil
+		}
+		if requestPDU.Values[i/8]&(1<<(i%8)) != 0 {
+			slave.Coils[requestPDU.StartingAddress+uint16(i)] = true
+		} else {
+			slave.Coils[requestPDU.StartingAddress+uint16(i)] = false
+		}
+	}
+
+	responsePDU := pdu.NewWriteMultipleCoilsResponse(requestPDU.StartingAddress, requestPDU.Quantity)
+	return responsePDU.ToBytes(), nil
+}
+
+func handleWriteSingleRegister(slave *Slave, requestPDUBytes []byte) ([]byte, error) {
+
+	var requestPDU pdu.PDUWriteSingleRegister
+	err := requestPDU.FromBytes(requestPDUBytes)
+	if err != nil {
+		gomodbus.Logger.Error("failed to parse request", zap.Error(err))
+		responsePDU := pdu.NewPDUErrorResponse(gomodbus.WriteSingleRegister, gomodbus.IllegalFunction)
+		return responsePDU.ToBytes(), nil
+	}
+
+	if requestPDU.FunctionCode != gomodbus.WriteSingleRegister {
+		gomodbus.Logger.Error("invalid function code for write single register", zap.Error(err))
+		responsePDU := pdu.NewPDUErrorResponse(gomodbus.WriteSingleRegister, gomodbus.IllegalFunction)
+		return responsePDU.ToBytes(), nil
+	}
+
+	_, ok := slave.HoldingRegisters[requestPDU.Address]
+	if !ok {
+		gomodbus.Logger.Error("holding register not found", zap.Error(err))
+		responsePDU := pdu.NewPDUErrorResponse(gomodbus.WriteSingleRegister, gomodbus.IllegalDataAddress)
+		return responsePDU.ToBytes(), nil
+	}
+
+	slave.HoldingRegisters[requestPDU.Address] = requestPDU.Value
+
+	responsePDU := pdu.NewWriteSingleRegisterResponse(requestPDU.Address, requestPDU.Value)
+	return responsePDU.ToBytes(), nil
+}
+
+func handleWriteMultipleRegisters(slave *Slave, requestPDUBytes []byte) ([]byte, error) {
+
+	var requestPDU pdu.PDUWriteMultipleRegisters
+	err := requestPDU.FromBytes(requestPDUBytes)
+	if err != nil {
+		gomodbus.Logger.Error("failed to parse request", zap.Error(err))
+		responsePDU := pdu.NewPDUErrorResponse(gomodbus.WriteMultipleRegisters, gomodbus.IllegalFunction)
+		return responsePDU.ToBytes(), nil
+	}
+
+	if requestPDU.FunctionCode != gomodbus.WriteMultipleRegisters {
+		gomodbus.Logger.Error("invalid function code for write multiple registers", zap.Error(err))
+		responsePDU := pdu.NewPDUErrorResponse(gomodbus.WriteMultipleRegisters, gomodbus.IllegalFunction)
+		return responsePDU.ToBytes(), nil
+	}
+
+	for i := 0; i < int(requestPDU.Quantity); i++ {
+		if _, ok := slave.HoldingRegisters[requestPDU.StartingAddress+uint16(i)]; !ok {
+			gomodbus.Logger.Error("holding register not found", zap.Error(err))
+			responsePDU := pdu.NewPDUErrorResponse(gomodbus.WriteMultipleRegisters, gomodbus.IllegalDataAddress)
+			return responsePDU.ToBytes(), nil
+		}
+		slave.HoldingRegisters[requestPDU.StartingAddress+uint16(i)] = requestPDU.Values[2*i:]
+	}
+
+	responsePDU := pdu.NewWriteMultipleRegistersResponse(requestPDU.StartingAddress, requestPDU.Quantity)
+	return responsePDU.ToBytes(), nil
+}
+

@@ -101,9 +101,14 @@ func (client *TCPClient) Connect() error {
 
 func (client *TCPClient) Disconnect() error {
 	if client.conn != nil {
-		return client.conn.Close()
+		err := client.conn.Close()
+		if err != nil {
+			gomodbus.Logger.Error("failed to close connection", zap.Error(err))
+			return err
+		}
+		gomodbus.Logger.Debug("client disconnected from server", zap.String("address", client.Host), zap.Int("port", client.Port))
+		client.conn = nil
 	}
-	gomodbus.Logger.Debug("client disconnected from server", zap.String("address", client.Host), zap.Int("port", client.Port))
 	return nil
 }
 

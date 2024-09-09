@@ -1,12 +1,14 @@
 package server
 
 import (
+	"context"
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
 	"net"
 	"os"
 	"sync"
+	"time"
 
 	"github.com/ulfaric/gomodbus"
 	"github.com/ulfaric/gomodbus/adu"
@@ -20,25 +22,30 @@ type TCPServer struct {
 	ByteOrder string
 	WordOrder string
 	Slaves    map[byte]*Slave
-	Status    chan string
 	mu        sync.Mutex
 
 	UseTLS   bool
 	CertFile string
 	KeyFile  string
 	CAFile   string
+
+	ctx    context.Context
+	cancel context.CancelFunc
+	wg     sync.WaitGroup
 }
 
-func NewTCPServer(host string, port int, useTLS bool, byteOrder, wordOrder, certFile, keyFile, caFile string) *TCPServer {
+func NewTCPServer(host string, port int, useTLS bool, byteOrder, wordOrder, certFile, keyFile, caFile string) Server {
+	ctx, cancel := context.WithCancel(context.Background())
 	return &TCPServer{
 		Host:     host,
 		Port:     port,
 		Slaves:   make(map[byte]*Slave),
-		Status:   make(chan string),
 		UseTLS:   useTLS,
 		CertFile: certFile,
 		KeyFile:  keyFile,
 		CAFile:   caFile,
+		ctx:      ctx,
+		cancel:   cancel,
 	}
 }
 
@@ -53,6 +60,16 @@ func (s *TCPServer) AddSlave(unitID byte) {
 	}
 }
 
+func (s *TCPServer) GetSlave(unitID byte) (*Slave, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	slave, ok := s.Slaves[unitID]
+	if !ok {
+		return nil, fmt.Errorf("slave not found")
+	}
+	return slave, nil
+}
+
 func (s *TCPServer) RemoveSlave(unitID byte) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -65,14 +82,12 @@ func (s *TCPServer) Start() error {
 	var err error
 
 	if s.UseTLS {
-		// Load server TLS certificate and key
 		cert, err := tls.LoadX509KeyPair(s.CertFile, s.KeyFile)
 		if err != nil {
 			gomodbus.Logger.Error("failed to load TLS certificate and key", zap.Error(err))
 			return fmt.Errorf("failed to load TLS certificate and key: %v", err)
 		}
 
-		// Load custom CA if provided
 		var tlsConfig *tls.Config
 		if s.CAFile != "" {
 			caCert, err := os.ReadFile(s.CAFile)
@@ -94,7 +109,6 @@ func (s *TCPServer) Start() error {
 			}
 		}
 
-		// Start listener with TLS
 		listener, err = tls.Listen("tcp", addr, tlsConfig)
 		if err != nil {
 			gomodbus.Logger.Error("failed to listen on %s with TLS", zap.Error(err))
@@ -111,109 +125,81 @@ func (s *TCPServer) Start() error {
 	}
 	defer listener.Close()
 
-	s.Status <- "Running"
 	gomodbus.Logger.Info("Waiting for connections...")
 	for {
-		status := <-s.Status
-		if status == "Stopping" {
-			break
+		select {
+		case <-s.ctx.Done():
+			gomodbus.Logger.Info("Shutting down server...")
+			return nil
+		default:
+			conn, err := listener.Accept()
+			if err != nil {
+				if opErr, ok := err.(*net.OpError); ok && opErr.Timeout() {
+					continue
+				}
+				gomodbus.Logger.Error("failed to accept connection", zap.Error(err))
+				continue
+			}
+			gomodbus.Logger.Info("Connection accepted from", zap.String("address", conn.RemoteAddr().String()))
+			s.wg.Add(1)
+			go s.handleConnection(conn)
 		}
-		conn, err := listener.Accept()
-		if err != nil {
-			gomodbus.Logger.Error("failed to accept connection", zap.Error(err))
-			continue
-		}
-		go s.handleConnection(conn)
 	}
-	return nil
 }
 
 func (s *TCPServer) Stop() error {
-	s.Status <- "Stopping"
+	s.cancel()
+	s.wg.Wait()
 	return nil
 }
 
 func (s *TCPServer) handleConnection(conn net.Conn) {
 	defer conn.Close()
+	defer s.wg.Done()
 
-	buffer := make([]byte, 256)
+	buffer := make([]byte, 512)
 	for {
-		n, err := conn.Read(buffer)
-		if err != nil {
-			gomodbus.Logger.Error("failed to read from connection", zap.Error(err))
+		select {
+		case <-s.ctx.Done():
 			return
-		}
+		default:
+			conn.SetReadDeadline(time.Now().Add(1 * time.Second))
+			n, err := conn.Read(buffer)
+			if err != nil {
+				if opErr, ok := err.(*net.OpError); ok && opErr.Timeout() {
+					continue
+				}
+				return
+			}
 
-		requestADU := &adu.TCPADU{}
-		err = requestADU.FromBytes(buffer[:n])
-		if err != nil {
-			gomodbus.Logger.Error("failed to parse request", zap.Error(err))
-			continue
-		}
+			requestADU := &adu.TCPADU{}
+			err = requestADU.FromBytes(buffer[:n])
+			if err != nil {
+				gomodbus.Logger.Error("failed to parse request", zap.Error(err))
+				continue
+			}
 
-		slave, ok := s.Slaves[requestADU.UnitID]
-		if !ok {
-			gomodbus.Logger.Error("slave not found", zap.Uint8("unitID", requestADU.UnitID))
-			reponsePDU := pdu.NewPDUErrorResponse(requestADU.PDU[0], 0x04)
-			response := adu.NewTCPADU(requestADU.TransactionID, requestADU.UnitID, reponsePDU.ToBytes())
-			_, err = conn.Write(response.ToBytes())
+			slave, ok := s.Slaves[requestADU.UnitID]
+			if !ok {
+				gomodbus.Logger.Error("slave not found", zap.Uint8("unitID", requestADU.UnitID))
+				reponsePDU := pdu.NewPDUErrorResponse(requestADU.PDU[0], 0x04)
+				response := adu.NewTCPADU(requestADU.TransactionID, requestADU.UnitID, reponsePDU.ToBytes())
+				_, err = conn.Write(response.ToBytes())
+				if err != nil {
+					gomodbus.Logger.Error("failed to write response", zap.Error(err))
+					return
+				}
+				continue
+			}
+
+			responsePDU, _ := processRequest(requestADU.PDU, slave)
+
+			responseADU := adu.NewTCPADU(requestADU.TransactionID, requestADU.UnitID, responsePDU)
+			_, err = conn.Write(responseADU.ToBytes())
 			if err != nil {
 				gomodbus.Logger.Error("failed to write response", zap.Error(err))
 				return
 			}
-			continue
 		}
-
-		responsePDU, err := s.processRequest(requestADU.PDU, slave)
-		if err != nil {
-			gomodbus.Logger.Error("failed to process request", zap.Error(err))
-			responsePDU := pdu.NewPDUErrorResponse(requestADU.PDU[0], 0x07)
-			response := adu.NewTCPADU(requestADU.TransactionID, requestADU.UnitID, responsePDU.ToBytes())
-			_, err = conn.Write(response.ToBytes())
-			if err != nil {
-				gomodbus.Logger.Error("failed to write response", zap.Error(err))
-				return
-			}
-			continue
-		}
-
-		responseADU := adu.NewTCPADU(requestADU.TransactionID, requestADU.UnitID, responsePDU)
-		_, err = conn.Write(responseADU.ToBytes())
-		if err != nil {
-			gomodbus.Logger.Error("failed to write response", zap.Error(err))
-			return
-		}
-	}
-}
-
-func (s *TCPServer) processRequest(request []byte, slave *Slave) ([]byte, error) {
-	switch request[0] {
-	case gomodbus.ReadCoil:
-		responsePDUBytes, err := HandleReadCoils(slave, request)
-		if err != nil {
-			return nil, err
-		}
-		return responsePDUBytes, nil
-	case gomodbus.ReadDiscreteInput:
-		responsePDUBytes, err := HandleReadDiscreteInputs(slave, request)
-		if err != nil {
-			return nil, err
-		}
-		return responsePDUBytes, nil
-	case gomodbus.ReadHoldingRegister:
-		responsePDUBytes, err := HandleReadHoldingRegisters(slave, request)
-		if err != nil {
-			return nil, err
-		}
-		return responsePDUBytes, nil
-	case gomodbus.ReadInputRegister:
-		responsePDUBytes, err := HandleReadInputRegisters(slave, request)
-		if err != nil {
-			return nil, err
-		}
-		return responsePDUBytes, nil
-	default:
-		responsePDU := pdu.NewPDUErrorResponse(request[0], 0x07)
-		return responsePDU.ToBytes(), nil
 	}
 }
