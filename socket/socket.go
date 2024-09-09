@@ -43,64 +43,68 @@ func (s *Socket) Start() error {
 
 func (s *Socket) handleConnection(conn net.Conn) {
 
-	// Read the header
-	headerBuffer := make([]byte, 2)
-	_, err := conn.Read(headerBuffer)
-	if err != nil {
-		gomodbus.Logger.Sugar().Errorf("wrapper failed reading header: %v", err)
-		return
-	}
-	header := &protobuf.Header{}
-	err = proto.Unmarshal(headerBuffer, header)
-	if err != nil {
-		gomodbus.Logger.Sugar().Errorf("wrapper failed unmarshalling header: %v", err)
-		return
-	}
+	for {
+		// Read the header
+		headerBuffer := make([]byte, 2)
+		_, err := conn.Read(headerBuffer)
+		if err != nil {
+			gomodbus.Logger.Sugar().Errorf("wrapper failed reading header: %v", err)
+			return
+		}
+		header := &protobuf.Header{}
+		err = proto.Unmarshal(headerBuffer, header)
+		if err != nil {
+			gomodbus.Logger.Sugar().Errorf("wrapper failed unmarshalling header: %v", err)
+			return
+		}
 
-	bodyBuffer := make([]byte, header.Length)
-	_, err = conn.Read(bodyBuffer)
-	if err != nil {
-		gomodbus.Logger.Sugar().Errorf("wrapper failed reading body: %v", err)
-		return
-	}
+		bodyBuffer := make([]byte, header.Length)
+		_, err = conn.Read(bodyBuffer)
+		if err != nil {
+			gomodbus.Logger.Sugar().Errorf("wrapper failed reading body: %v", err)
+			return
+		}
 
-	switch header.Function {
-	case protobuf.Function_NEW_TCP_SERVER:
-		gomodbus.Logger.Debug("wrapper received NEW_TCP_SERVER")
-		s.handleNewTCPServer(bodyBuffer)
-	case protobuf.Function_NEW_RTU_SERVER:
-		gomodbus.Logger.Debug("wrapper received NEW_RTU_SERVER")
-		s.handleNewRTUServer(bodyBuffer)
-	case protobuf.Function_START:
-		gomodbus.Logger.Debug("wrapper received START")
-		s.handleStart()
-	case protobuf.Function_STOP:
-		gomodbus.Logger.Debug("wrapper received STOP")
-		s.handleStop()
-	case protobuf.Function_ADD_COILS:
-		gomodbus.Logger.Debug("wrapper received ADD_COILS")
-		s.addCoils(bodyBuffer)
-	case protobuf.Function_DELETE_COILS:
-		gomodbus.Logger.Debug("wrapper received DELETE_COILS")
-		s.deleteCoils(bodyBuffer)
-	case protobuf.Function_ADD_DISCRETE_INPUTS:
-		gomodbus.Logger.Debug("wrapper received ADD_DISCRETE_INPUTS")
-		s.addDiscreteInputs(bodyBuffer)
-	case protobuf.Function_DELETE_DISCRETE_INPUTS:
-		gomodbus.Logger.Debug("wrapper received DELETE_DISCRETE_INPUTS")
-		s.deleteDiscreteInputs(bodyBuffer)
-	case protobuf.Function_ADD_HOLDING_REGISTERS:
-		gomodbus.Logger.Debug("wrapper received ADD_HOLDING_REGISTERS")
-		s.addHoldingRegisters(bodyBuffer)
-	case protobuf.Function_DELETE_HOLDING_REGISTERS:
-		gomodbus.Logger.Debug("wrapper received DELETE_HOLDING_REGISTERS")
-		s.deleteHoldingRegisters(bodyBuffer)
-	case protobuf.Function_ADD_INPUT_REGISTERS:
-		gomodbus.Logger.Debug("wrapper received ADD_INPUT_REGISTERS")
-		s.addInputRegisters(bodyBuffer)
-	case protobuf.Function_DELETE_INPUT_REGISTERS:
-		gomodbus.Logger.Debug("wrapper received DELETE_INPUT_REGISTERS")
-		s.deleteInputRegisters(bodyBuffer)
+		switch header.Function {
+		case protobuf.Function_NEW_TCP_SERVER:
+			gomodbus.Logger.Debug("wrapper received NEW_TCP_SERVER")
+			s.handleNewTCPServer(bodyBuffer)
+		case protobuf.Function_NEW_RTU_SERVER:
+			gomodbus.Logger.Debug("wrapper received NEW_RTU_SERVER")
+			s.handleNewRTUServer(bodyBuffer)
+		case protobuf.Function_START:
+			gomodbus.Logger.Debug("wrapper received START")
+			s.handleStart()
+		case protobuf.Function_STOP:
+			gomodbus.Logger.Debug("wrapper received STOP")
+			s.handleStop()
+		case protobuf.Function_ADD_COILS:
+			gomodbus.Logger.Debug("wrapper received ADD_COILS")
+			s.addCoils(bodyBuffer)
+		case protobuf.Function_DELETE_COILS:
+			gomodbus.Logger.Debug("wrapper received DELETE_COILS")
+			s.deleteCoils(bodyBuffer)
+		case protobuf.Function_ADD_DISCRETE_INPUTS:
+			gomodbus.Logger.Debug("wrapper received ADD_DISCRETE_INPUTS")
+			s.addDiscreteInputs(bodyBuffer)
+		case protobuf.Function_DELETE_DISCRETE_INPUTS:
+			gomodbus.Logger.Debug("wrapper received DELETE_DISCRETE_INPUTS")
+			s.deleteDiscreteInputs(bodyBuffer)
+		case protobuf.Function_ADD_HOLDING_REGISTERS:
+			gomodbus.Logger.Debug("wrapper received ADD_HOLDING_REGISTERS")
+			s.addHoldingRegisters(bodyBuffer)
+		case protobuf.Function_DELETE_HOLDING_REGISTERS:
+			gomodbus.Logger.Debug("wrapper received DELETE_HOLDING_REGISTERS")
+			s.deleteHoldingRegisters(bodyBuffer)
+		case protobuf.Function_ADD_INPUT_REGISTERS:
+			gomodbus.Logger.Debug("wrapper received ADD_INPUT_REGISTERS")
+			s.addInputRegisters(bodyBuffer)
+		case protobuf.Function_DELETE_INPUT_REGISTERS:
+			gomodbus.Logger.Debug("wrapper received DELETE_INPUT_REGISTERS")
+			s.deleteInputRegisters(bodyBuffer)
+		default:
+			gomodbus.Logger.Sugar().Errorf("wrapper received unknown function: %d", header.Function)
+		}
 	}
 }
 
