@@ -13,7 +13,6 @@ import (
 	"github.com/ulfaric/gomodbus"
 	"github.com/ulfaric/gomodbus/adu"
 	"github.com/ulfaric/gomodbus/pdu"
-	"go.uber.org/zap"
 )
 
 type TCPServer struct {
@@ -84,7 +83,7 @@ func (s *TCPServer) Start() error {
 	if s.UseTLS {
 		cert, err := tls.LoadX509KeyPair(s.CertFile, s.KeyFile)
 		if err != nil {
-			gomodbus.Logger.Error("failed to load TLS certificate and key", zap.Error(err))
+			gomodbus.Logger.Sugar().Errorf("failed to load TLS certificate and key: %v", err)
 			return fmt.Errorf("failed to load TLS certificate and key: %v", err)
 		}
 
@@ -92,7 +91,7 @@ func (s *TCPServer) Start() error {
 		if s.CAFile != "" {
 			caCert, err := os.ReadFile(s.CAFile)
 			if err != nil {
-				gomodbus.Logger.Error("failed to read CA file", zap.Error(err))
+				gomodbus.Logger.Sugar().Errorf("failed to read CA file: %v", err)
 				return fmt.Errorf("failed to read CA file: %v", err)
 			}
 			caCertPool := x509.NewCertPool()
@@ -111,14 +110,14 @@ func (s *TCPServer) Start() error {
 
 		listener, err = tls.Listen("tcp", addr, tlsConfig)
 		if err != nil {
-			gomodbus.Logger.Error("failed to listen on %s with TLS", zap.Error(err))
+			gomodbus.Logger.Sugar().Errorf("failed to listen on %s with TLS: %v", addr, err)
 			return fmt.Errorf("failed to listen on %s with TLS: %v", addr, err)
 		}
 		gomodbus.Logger.Sugar().Infof("Modbus server started with TLS on %s", addr)
 	} else {
 		listener, err = net.Listen("tcp", addr)
 		if err != nil {
-			gomodbus.Logger.Error("failed to listen on %s", zap.Error(err))
+			gomodbus.Logger.Sugar().Errorf("failed to listen on %s: %v", addr, err)
 			return fmt.Errorf("failed to listen on %s: %v", addr, err)
 		}
 		gomodbus.Logger.Sugar().Infof("Modbus server started on %s", addr)
@@ -137,10 +136,10 @@ func (s *TCPServer) Start() error {
 				if opErr, ok := err.(*net.OpError); ok && opErr.Timeout() {
 					continue
 				}
-				gomodbus.Logger.Error("failed to accept connection", zap.Error(err))
+				gomodbus.Logger.Sugar().Errorf("failed to accept connection: %v", err)
 				continue
 			}
-			gomodbus.Logger.Info("Connection accepted from", zap.String("address", conn.RemoteAddr().String()))
+			gomodbus.Logger.Sugar().Infof("Connection accepted from %s", conn.RemoteAddr().String())
 			s.wg.Add(1)
 			go s.handleConnection(conn)
 		}
@@ -175,18 +174,18 @@ func (s *TCPServer) handleConnection(conn net.Conn) {
 			requestADU := &adu.TCPADU{}
 			err = requestADU.FromBytes(buffer[:n])
 			if err != nil {
-				gomodbus.Logger.Error("failed to parse request", zap.Error(err))
+				gomodbus.Logger.Sugar().Errorf("failed to parse request: %v", err)
 				continue
 			}
 
 			slave, ok := s.Slaves[requestADU.UnitID]
 			if !ok {
-				gomodbus.Logger.Error("slave not found", zap.Uint8("unitID", requestADU.UnitID))
+				gomodbus.Logger.Sugar().Errorf("slave not found: %v", requestADU.UnitID)
 				reponsePDU := pdu.NewPDUErrorResponse(requestADU.PDU[0], 0x04)
 				response := adu.NewTCPADU(requestADU.TransactionID, requestADU.UnitID, reponsePDU.ToBytes())
 				_, err = conn.Write(response.ToBytes())
 				if err != nil {
-					gomodbus.Logger.Error("failed to write response", zap.Error(err))
+					gomodbus.Logger.Sugar().Errorf("failed to write response: %v", err)
 					return
 				}
 				continue
@@ -197,7 +196,7 @@ func (s *TCPServer) handleConnection(conn net.Conn) {
 			responseADU := adu.NewTCPADU(requestADU.TransactionID, requestADU.UnitID, responsePDU)
 			_, err = conn.Write(responseADU.ToBytes())
 			if err != nil {
-				gomodbus.Logger.Error("failed to write response", zap.Error(err))
+				gomodbus.Logger.Sugar().Errorf("failed to write response: %v", err)
 				return
 			}
 		}

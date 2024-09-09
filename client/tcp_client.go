@@ -9,7 +9,6 @@ import (
 
 	"github.com/ulfaric/gomodbus"
 	"github.com/ulfaric/gomodbus/adu"
-	"go.uber.org/zap"
 )
 
 type TCPClient struct {
@@ -95,7 +94,7 @@ func (client *TCPClient) Connect() error {
 	}
 
 	client.conn = conn
-	gomodbus.Logger.Debug("client connected to server", zap.String("address", address), zap.Int("port", client.Port))
+	gomodbus.Logger.Sugar().Debugf("client connected to server: %s, %d", address, client.Port)
 	return nil
 }
 
@@ -103,10 +102,10 @@ func (client *TCPClient) Disconnect() error {
 	if client.conn != nil {
 		err := client.conn.Close()
 		if err != nil {
-			gomodbus.Logger.Error("failed to close connection", zap.Error(err))
+			gomodbus.Logger.Sugar().Errorf("failed to close connection: %v", err)
 			return err
 		}
-		gomodbus.Logger.Debug("client disconnected from server", zap.String("address", client.Host), zap.Int("port", client.Port))
+		gomodbus.Logger.Sugar().Debugf("client disconnected from server: %s, %d", client.Host, client.Port)
 		client.conn = nil
 	}
 	return nil
@@ -117,11 +116,11 @@ func (client *TCPClient) SendRequest(unitID byte, pduBytes []byte) error {
 	aduBytes := adu.ToBytes()
 	_, err := client.conn.Write(aduBytes)
 	if err != nil {
-		gomodbus.Logger.Error("client failed to send request", zap.Error(err))
+		gomodbus.Logger.Sugar().Errorf("client failed to send request: %v", err)
 		return err
 	}
 	client.transactionID++
-	gomodbus.Logger.Debug("client sent request", zap.ByteString("request", aduBytes))
+	gomodbus.Logger.Sugar().Debugf("client sent request: %v", aduBytes)
 	return nil
 }
 
@@ -132,19 +131,19 @@ func (client *TCPClient) ReceiveResponse() ([]byte, error) {
 	// Read exactly the number of bytes into the buffer
 	n, err := client.conn.Read(buffer)
 	if err != nil {
-		gomodbus.Logger.Error("client failed to receive response", zap.Error(err))
+		gomodbus.Logger.Sugar().Errorf("client failed to receive response: %v", err)
 		return nil, err
 	}
 
 	// Slice the buffer to the actual number of bytes read
 	responseBytes := buffer[:n]
 
-	gomodbus.Logger.Debug("client received response", zap.ByteString("response", responseBytes))
+	gomodbus.Logger.Sugar().Debugf("client received response: %v", responseBytes)
 
 	responseADU := &adu.TCPADU{}
 	err = responseADU.FromBytes(responseBytes)
 	if err != nil {
-		gomodbus.Logger.Error("client failed to parse response ADU", zap.Error(err))
+		gomodbus.Logger.Sugar().Errorf("client failed to parse response ADU: %v", err)
 		return nil, err
 	}
 	return responseADU.PDU, nil

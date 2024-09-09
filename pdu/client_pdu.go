@@ -5,7 +5,6 @@ import (
 	"encoding/binary"
 
 	"github.com/ulfaric/gomodbus"
-	"go.uber.org/zap"
 )
 
 // PDURead represents a Modbus PDU for reading operations
@@ -65,18 +64,18 @@ func (pdu *PDURead) FromBytes(data []byte) error {
 	buffer := bytes.NewBuffer(data)
 	functionCode, err := buffer.ReadByte()
 	if err != nil {
-		gomodbus.Logger.Error("error parsing function code for PDURead", zap.Error(err))
+		gomodbus.Logger.Sugar().Errorf("failed to parse function code for PDURead: %v", err)
 		return err
 	}
 	pdu.FunctionCode = functionCode
 	err = binary.Read(buffer, binary.BigEndian, &pdu.StartingAddress)
 	if err != nil {
-		gomodbus.Logger.Error("error parsing starting address for PDURead", zap.Error(err))
+		gomodbus.Logger.Sugar().Errorf("failed to parse starting address for PDURead: %v", err)
 		return err
 	}
 	err = binary.Read(buffer, binary.BigEndian, &pdu.Quantity)
 	if err != nil {
-		gomodbus.Logger.Error("error parsing quantity for PDURead", zap.Error(err))
+		gomodbus.Logger.Sugar().Errorf("failed to parse quantity for PDURead: %v", err)
 		return err
 	}
 	return nil
@@ -119,18 +118,18 @@ func (pdu *PDUWriteSingleCoil) FromBytes(data []byte) error {
 	buffer := bytes.NewBuffer(data)
 	functionCode, err := buffer.ReadByte()
 	if err != nil {
-		gomodbus.Logger.Error("error parsing function code for PDUWriteSingleCoil", zap.Error(err))
+		gomodbus.Logger.Sugar().Errorf("failed to parse function code for PDUWriteSingleCoil: %v", err)
 		return err
 	}
 	pdu.FunctionCode = functionCode
 	err = binary.Read(buffer, binary.BigEndian, &pdu.Address)
 	if err != nil {
-		gomodbus.Logger.Error("error parsing address for PDUWriteSingleCoil", zap.Error(err))
+		gomodbus.Logger.Sugar().Errorf("failed to parse address for PDUWriteSingleCoil: %v", err)
 		return err
 	}
 	err = binary.Read(buffer, binary.BigEndian, &pdu.Value)
 	if err != nil {
-		gomodbus.Logger.Error("error parsing value for PDUWriteSingleCoil", zap.Error(err))
+		gomodbus.Logger.Sugar().Errorf("failed to parse value for PDUWriteSingleCoil: %v", err)
 		return err
 	}
 	return nil
@@ -185,23 +184,23 @@ func (pdu *PDUWriteMultipleCoils) FromBytes(data []byte) error {
 	buffer := bytes.NewBuffer(data)
 	functionCode, err := buffer.ReadByte()
 	if err != nil {
-		gomodbus.Logger.Error("error parsing function code for PDUWriteMultipleCoils", zap.Error(err))
+		gomodbus.Logger.Sugar().Errorf("failed to parse function code for PDUWriteMultipleCoils: %v", err)
 		return err
 	}
 	pdu.FunctionCode = functionCode
 	err = binary.Read(buffer, binary.BigEndian, &pdu.StartingAddress)
 	if err != nil {
-		gomodbus.Logger.Error("error parsing starting address for PDUWriteMultipleCoils", zap.Error(err))
+		gomodbus.Logger.Sugar().Errorf("failed to parse starting address for PDUWriteMultipleCoils: %v", err)
 		return err
 	}
 	err = binary.Read(buffer, binary.BigEndian, &pdu.Quantity)
 	if err != nil {
-		gomodbus.Logger.Error("error parsing quantity of outputs for PDUWriteMultipleCoils", zap.Error(err))
+		gomodbus.Logger.Sugar().Errorf("failed to parse quantity of outputs for PDUWriteMultipleCoils: %v", err)
 		return err
 	}
 	byteCount, err := buffer.ReadByte()
 	if err != nil {
-		gomodbus.Logger.Error("error parsing byte count for PDUWriteMultipleCoils", zap.Error(err))
+		gomodbus.Logger.Sugar().Errorf("failed to parse byte count for PDUWriteMultipleCoils: %v", err)
 		return err
 	}
 	pdu.ByteCount = byteCount
@@ -239,13 +238,13 @@ func (pdu *PDUWriteSingleRegister) FromBytes(data []byte) error {
 	buffer := bytes.NewBuffer(data)
 	functionCode, err := buffer.ReadByte()
 	if err != nil {
-		gomodbus.Logger.Error("error parsing function code for PDUWriteSingleRegister", zap.Error(err))
+		gomodbus.Logger.Sugar().Errorf("failed to parse function code for PDUWriteSingleRegister: %v", err)
 		return err
 	}
 	pdu.FunctionCode = functionCode
 	err = binary.Read(buffer, binary.BigEndian, &pdu.Address)
 	if err != nil {
-		gomodbus.Logger.Error("error parsing address for PDUWriteSingleRegister", zap.Error(err))
+		gomodbus.Logger.Sugar().Errorf("failed to parse address for PDUWriteSingleRegister: %v", err)
 		return err
 	}
 	pdu.Value = buffer.Bytes()
@@ -288,15 +287,23 @@ func (pdu *PDUWriteMultipleRegisters) FromBytes(data []byte) error {
 	buffer := bytes.NewBuffer(data)
 	functionCode, err := buffer.ReadByte()
 	if err != nil {
-		gomodbus.Logger.Error("error parsing function code", zap.Error(err))
+		gomodbus.Logger.Sugar().Errorf("failed to parse function code for PDUWriteMultipleRegisters: %v", err)
 		return err
 	}
 	pdu.FunctionCode = functionCode
-	binary.Read(buffer, binary.BigEndian, &pdu.StartingAddress)
-	binary.Read(buffer, binary.BigEndian, &pdu.Quantity)
+	err = binary.Read(buffer, binary.BigEndian, &pdu.StartingAddress)
+	if err != nil {
+		gomodbus.Logger.Sugar().Errorf("failed to parse starting address for PDUWriteMultipleRegisters: %v", err)
+		return err
+	}
+	err = binary.Read(buffer, binary.BigEndian, &pdu.Quantity)
+	if err != nil {
+		gomodbus.Logger.Sugar().Errorf("failed to parse quantity for PDUWriteMultipleRegisters: %v", err)
+		return err
+	}
 	byteCount, err := buffer.ReadByte()
 	if err != nil {
-		gomodbus.Logger.Error("error parsing byte count", zap.Error(err))
+		gomodbus.Logger.Sugar().Errorf("failed to parse byte count for PDUWriteMultipleRegisters: %v", err)
 		return err
 	}
 	pdu.ByteCount = byteCount

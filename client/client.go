@@ -7,7 +7,6 @@ import (
 
 	"github.com/ulfaric/gomodbus"
 	"github.com/ulfaric/gomodbus/pdu"
-	"go.uber.org/zap"
 )
 
 // Client interface defines the methods for a Modbus client
@@ -45,7 +44,7 @@ func ReadCoils(c Client, unitID byte, address uint16, quantity uint16) ([]bool, 
 
 	// Check if the function code is correct
 	if response.FunctionCode != gomodbus.ReadCoil {
-		gomodbus.Logger.Error("invalid function code for ReadCoils response", zap.Error(err))
+		gomodbus.Logger.Sugar().Errorf("invalid function code for ReadCoils response: %v", err)
 		return nil, fmt.Errorf("invalid function code, expected %d, got %d", gomodbus.ReadCoil, response.FunctionCode)
 	}
 
@@ -87,7 +86,7 @@ func ReadDiscreteInputs(c Client, unitID byte, address uint16, quantity uint16) 
 
 	// Check if the function code is correct
 	if response.FunctionCode != gomodbus.ReadDiscreteInput {
-		gomodbus.Logger.Error("invalid function code for ReadDiscreteInputs response", zap.Error(err))
+		gomodbus.Logger.Sugar().Errorf("invalid function code for ReadDiscreteInputs response: %v", err)
 		return nil, fmt.Errorf("invalid function code, expected %d, got %d", gomodbus.ReadDiscreteInput, response.FunctionCode)
 	}
 
@@ -129,7 +128,7 @@ func ReadHoldingRegisters(c Client, unitID byte, address uint16, quantity uint16
 
 	// Check if the function code is correct
 	if response.FunctionCode != gomodbus.ReadHoldingRegister {
-		gomodbus.Logger.Error("invalid function code for ReadHoldingRegisters response", zap.Error(err))
+		gomodbus.Logger.Sugar().Errorf("invalid function code for ReadHoldingRegisters response: %v", err)
 		return nil, fmt.Errorf("invalid function code, expected %d, got %d", gomodbus.ReadHoldingRegister, response.FunctionCode)
 	}
 
@@ -169,7 +168,7 @@ func ReadInputRegisters(c Client, unitID byte, address uint16, quantity uint16) 
 
 	// Check if the function code is correct
 	if response.FunctionCode != gomodbus.ReadInputRegister {
-		gomodbus.Logger.Error("invalid function code for ReadInputRegisters response", zap.Error(err))
+		gomodbus.Logger.Sugar().Errorf("invalid function code for ReadInputRegisters response: %v", err)
 		return nil, fmt.Errorf("invalid function code, expected %d, got %d", gomodbus.ReadInputRegister, response.FunctionCode)
 	}
 
@@ -209,13 +208,13 @@ func WriteSingleCoil(c Client, unitID byte, address uint16, value bool) error {
 
 	// Check if the function code is correct
 	if response.FunctionCode != gomodbus.WriteSingleCoil {
-		gomodbus.Logger.Error("invalid function code for WriteSingleCoil response", zap.Error(err))
+		gomodbus.Logger.Sugar().Errorf("invalid function code for WriteSingleCoil response: %v", err)
 		return fmt.Errorf("invalid function code, expected %d, got %d", gomodbus.WriteSingleCoil, response.FunctionCode)
 	}
 
 	// Check if the response matches the request
 	if response.Address != address || response.Value != value {
-		gomodbus.Logger.Error("response does not match request", zap.Error(err))
+		gomodbus.Logger.Sugar().Errorf("response does not match request: %v", err)
 		return fmt.Errorf("response does not match request, expected address %d, got %d, expected value %t, got %t", address, response.Address, value, response.Value)
 	}
 
@@ -249,13 +248,13 @@ func WriteMultipleCoils(c Client, unitID byte, address uint16, values []bool) er
 
 	// Check if the function code is correct
 	if response.FunctionCode != gomodbus.WriteMultipleCoils {
-		gomodbus.Logger.Error("invalid function code for WriteMultipleCoils response", zap.Error(err))
+		gomodbus.Logger.Sugar().Errorf("invalid function code for WriteMultipleCoils response: %v", err)
 		return fmt.Errorf("invalid function code, expected %d, got %d", gomodbus.WriteMultipleCoils, response.FunctionCode)
 	}
 
 	// Check if the response matches the request
 	if response.Address != address || response.Quantity != uint16(len(values)) {
-		gomodbus.Logger.Error("response does not match request", zap.Error(err))
+		gomodbus.Logger.Sugar().Errorf("response does not match request: %v", err)
 		return fmt.Errorf("response does not match request, expected address %d, got %d, expected quantity %d, got %d", address, response.Address, len(values), response.Quantity)
 	}
 
@@ -289,13 +288,13 @@ func WriteSingleRegister(c Client, unitID byte, address uint16, value []byte) er
 
 	// Check if the function code is correct
 	if response.FunctionCode != gomodbus.WriteSingleRegister {
-		gomodbus.Logger.Error("invalid function code for WriteSingleRegister response", zap.Error(err))
+		gomodbus.Logger.Sugar().Errorf("invalid function code for WriteSingleRegister response: %v", err)
 		return fmt.Errorf("invalid function code, expected %d, got %d", gomodbus.WriteSingleRegister, response.FunctionCode)
 	}
 
 	// Check if the response matches the request
 	if response.Address != address || !bytes.Equal(response.Value, value) {
-		gomodbus.Logger.Error("response does not match request")
+		gomodbus.Logger.Sugar().Errorf("response does not match request: %v", err)
 		return fmt.Errorf("response does not match request, expected address %d, got %d, expected value %v, got %v", address, response.Address, value, response.Value)
 	}
 
@@ -329,13 +328,13 @@ func WriteMultipleRegisters(c Client, unitID byte, address uint16, quantity uint
 
 	// Check if the function code is correct
 	if response.FunctionCode != gomodbus.WriteMultipleRegisters {
-		gomodbus.Logger.Error("invalid function code for WriteMultipleRegisters response", zap.Error(err))
+		gomodbus.Logger.Sugar().Errorf("invalid function code for WriteMultipleRegisters response: %v", err)
 		return fmt.Errorf("invalid function code, expected %d, got %d", gomodbus.WriteMultipleRegisters, response.FunctionCode)
 	}
 
 	// Check if the response matches the request
 	if response.Address != address || response.Quantity != uint16(len(values)/2) {
-		gomodbus.Logger.Error("response does not match request", zap.Error(err))
+		gomodbus.Logger.Sugar().Errorf("response does not match request: %v", err)
 		return fmt.Errorf("response does not match request, expected address %d, got %d, expected quantity %d, got %d", address, response.Address, len(values), response.Quantity)
 	}
 

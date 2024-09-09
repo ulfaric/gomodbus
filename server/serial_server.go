@@ -8,7 +8,6 @@ import (
 	"github.com/ulfaric/gomodbus"
 	"github.com/ulfaric/gomodbus/adu"
 	"github.com/ulfaric/gomodbus/pdu"
-	"go.uber.org/zap"
 	"context"
 )
 
@@ -83,14 +82,14 @@ func (s *SerialServer) Start() error {
 
 	port, err := serial.OpenPort(config)
 	if err != nil {
-		gomodbus.Logger.Error("failed to open serial port", zap.Error(err))
+		gomodbus.Logger.Sugar().Errorf("failed to open serial port: %v", err)
 		return fmt.Errorf("failed to open serial port: %v", err)
 	}
 	defer port.Close()
 
 	gomodbus.Logger.Sugar().Infof("Modbus serial server started on %s", s.Port)
 
-	gomodbus.Logger.Info("Waiting for requests...")
+	gomodbus.Logger.Sugar().Info("Waiting for requests...")
 
 	buffer := make([]byte, 256)
 	for {
@@ -100,25 +99,25 @@ func (s *SerialServer) Start() error {
 		default:
 			n, err := port.Read(buffer)
 			if err != nil {
-				gomodbus.Logger.Error("failed to read from serial port", zap.Error(err))
+				gomodbus.Logger.Sugar().Errorf("failed to read from serial port: %v", err)
 				continue
 			}
 
 			requestADU := &adu.SerialADU{}
 			err = requestADU.FromBytes(buffer[:n])
 			if err != nil {
-				gomodbus.Logger.Error("failed to parse request", zap.Error(err))
+				gomodbus.Logger.Sugar().Errorf("failed to parse request: %v", err)
 				continue
 			}
 
 			slave, ok := s.Slaves[requestADU.UnitID]
 			if !ok {
-				gomodbus.Logger.Error("slave not found", zap.Uint8("unitID", requestADU.UnitID))
+				gomodbus.Logger.Sugar().Errorf("slave not found: %v", requestADU.UnitID)
 				responsePDU := pdu.NewPDUErrorResponse(requestADU.PDU[0], 0x04)
 				response := adu.NewSerialADU(requestADU.UnitID, responsePDU.ToBytes())
 				_, err = port.Write(response.ToBytes())
 				if err != nil {
-					gomodbus.Logger.Error("failed to write response", zap.Error(err))
+					gomodbus.Logger.Sugar().Errorf("failed to write response: %v", err)
 				}
 				continue
 			}
@@ -128,7 +127,7 @@ func (s *SerialServer) Start() error {
 			responseADU := adu.NewSerialADU(requestADU.UnitID, responsePDU)
 			_, err = port.Write(responseADU.ToBytes())
 			if err != nil {
-				gomodbus.Logger.Error("failed to write response", zap.Error(err))
+				gomodbus.Logger.Sugar().Errorf("failed to write response: %v", err)
 			}
 		}
 	}

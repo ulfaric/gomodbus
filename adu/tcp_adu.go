@@ -6,7 +6,6 @@ import (
 	"fmt"
 
 	"github.com/ulfaric/gomodbus"
-	"go.uber.org/zap"
 )
 
 type TCPADU struct {
@@ -48,23 +47,23 @@ func (adu *TCPADU) FromBytes(data []byte) error {
 	buffer := bytes.NewBuffer(data)
 
 	if err := binary.Read(buffer, binary.BigEndian, &adu.TransactionID); err != nil {
-		gomodbus.Logger.Error("error parsing TransactionID for TCPADU", zap.Error(err))
+		gomodbus.Logger.Sugar().Errorf("failed to parse TransactionID for TCPADU: %v", err)
 		return err
 	}
 
 	if err := binary.Read(buffer, binary.BigEndian, &adu.ProtocolID); err != nil {
-		gomodbus.Logger.Error("error parsing ProtocolID for TCPADU", zap.Error(err))
+		gomodbus.Logger.Sugar().Errorf("failed to parse ProtocolID for TCPADU: %v", err)
 		return err
 	}
 
 	if err := binary.Read(buffer, binary.BigEndian, &adu.Length); err != nil {
-		gomodbus.Logger.Error("error parsing Length for TCPADU", zap.Error(err))
+		gomodbus.Logger.Sugar().Errorf("failed to parse Length for TCPADU: %v", err)
 		return err
 	}
 
 	unitID, err := buffer.ReadByte()
 	if err != nil {
-		gomodbus.Logger.Error("error parsing UnitID for TCPADU", zap.Error(err))
+		gomodbus.Logger.Sugar().Errorf("failed to parse UnitID for TCPADU: %v", err)
 		return err
 	}
 	adu.UnitID = unitID

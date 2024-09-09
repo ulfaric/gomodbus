@@ -1,0 +1,95 @@
+syntax = "proto3";
+
+package gomodbus;
+
+option go_package = "./protobuf";
+
+enum Function {
+    NEW_TCP_SERVER = 0;
+    NEW_RTU_SERVER = 1;
+    NEW_ASCII_SERVER = 2;
+    START = 3;
+    STOP = 4;
+    ADD_COIL = 5;
+    ADD_COILS = 6;
+    ADD_DISCRETE_INPUT = 7;
+    ADD_DISCRETE_INPUTS = 8;
+    ADD_HOLDING_REGISTER = 9;
+    ADD_HOLDING_REGISTERS = 10;
+    ADD_INPUT_REGISTER = 11;
+    ADD_INPUT_REGISTERS = 12;
+}
+
+// Header
+message Header {
+    Function function = 1;
+    uint32 length = 2;
+}
+
+// Message for NewTCPServer function
+message NewTCPServerRequest {
+    string host = 1;
+    uint32 port = 2;
+    bool useTLS = 3;
+    string byteOrder = 4;
+    string wordOrder = 5;
+    string certFile = 6;
+    string keyFile = 7;
+    string caFile = 8;
+}
+
+// Message for AddCoil function
+message AddCoilRequest {
+    uint32 unitID = 1;
+    uint32 address = 2;
+    bool value = 3;
+}
+
+// Message for AddCoils function
+message AddCoilsRequest {
+    uint32 unitID = 1;
+    uint32 address = 2;
+    repeated bool values = 3;
+}
+
+// Message for AddDiscreteInput function
+message AddDiscreteInputRequest {
+    uint32 unitID = 1;
+    uint32 address = 2;
+    bool value = 3;
+}
+
+// Message for AddDiscreteInputs function
+message AddDiscreteInputsRequest {
+    uint32 unitID = 1;
+    uint32 address = 2;
+    repeated bool values = 3;
+}
+
+// Message for AddHoldingRegister function
+message AddHoldingRegisterRequest {
+    uint32 unitID = 1;
+    uint32 address = 2;
+    bytes value = 3;
+}
+
+// Message for AddHoldingRegisters function
+message AddHoldingRegistersRequest {
+    uint32 unitID = 1;
+    uint32 address = 2;
+    repeated bytes values = 3;
+}
+
+// Message for AddInputRegister function
+message AddInputRegisterRequest {
+    uint32 unitID = 1;
+    uint32 address = 2;
+    bytes value = 3;
+}
+
+// Message for AddInputRegisters function
+message AddInputRegistersRequest {
+    uint32 unitID = 1;
+    uint32 address = 2;
+    repeated bytes values = 3;
+}

@@ -6,7 +6,6 @@ import (
 	"fmt"
 
 	"github.com/ulfaric/gomodbus"
-	"go.uber.org/zap"
 )
 
 type SerialADU struct {
@@ -49,7 +48,7 @@ func (adu *SerialADU) FromBytes(data []byte) error {
 	// Read Address
 	err := binary.Read(buffer, binary.BigEndian, &adu.UnitID)
 	if err != nil {
-		gomodbus.Logger.Error("error parsing UnitID for SerialADU", zap.Error(err))
+		gomodbus.Logger.Sugar().Errorf("failed to parse UnitID for SerialADU: %v", err)
 		return err
 	}
 
