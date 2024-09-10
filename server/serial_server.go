@@ -4,11 +4,11 @@ import (
 	"fmt"
 	"sync"
 
+	"context"
 	"github.com/tarm/serial"
 	"github.com/ulfaric/gomodbus"
 	"github.com/ulfaric/gomodbus/adu"
 	"github.com/ulfaric/gomodbus/pdu"
-	"context"
 )
 
 type SerialServer struct {
@@ -21,10 +21,10 @@ type SerialServer struct {
 	WordOrder string
 	Slaves    map[byte]*Slave
 
-	mu        sync.Mutex
-	ctx       context.Context
-	cancel    context.CancelFunc
-	wg        sync.WaitGroup
+	mu     sync.Mutex
+	ctx    context.Context
+	cancel context.CancelFunc
+	wg     sync.WaitGroup
 }
 
 func NewSerialServer(port string, baudRate int, dataBits byte, parity serial.Parity, stopBits serial.StopBits, byteOrder, wordOrder string) Server {
@@ -39,8 +39,8 @@ func NewSerialServer(port string, baudRate int, dataBits byte, parity serial.Par
 		WordOrder: wordOrder,
 		Slaves:    make(map[byte]*Slave),
 
-		ctx:       ctx,
-		cancel:    cancel,
+		ctx:    ctx,
+		cancel: cancel,
 	}
 }
 
