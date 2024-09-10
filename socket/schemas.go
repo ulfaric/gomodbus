@@ -1,4 +1,4 @@
-package pipe
+package socket
 
 const (
 	NewTCPServerRequest = 1
