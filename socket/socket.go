@@ -6,6 +6,7 @@ import (
 	"net"
 	"os"
 	"sync"
+	"time"
 
 	"github.com/ulfaric/gomodbus"
 	"github.com/ulfaric/gomodbus/server"
@@ -79,34 +80,32 @@ func (s *Socket) Stop() {
 
 // receiveRequest reads and parses a request from the connection.
 func receiveRequest(conn net.Conn) (h *Header, body []byte, err error) {
+	conn.SetReadDeadline(time.Now().Add(1 * time.Second)) // Set a read deadline
 	buffer := make([]byte, 16)
 	_, err = conn.Read(buffer)
 	if err != nil {
-		gomodbus.Logger.Sugar().Errorf("failed to read pre-header from connection: %v", err)
 		return nil, nil, err
 	}
 
-	headerLength := binary.BigEndian.Uint64(buffer[0:7])
-	bodyLength := binary.BigEndian.Uint64(buffer[8:15])
+	headerLength := binary.BigEndian.Uint64(buffer[0:8])
+	bodyLength := binary.BigEndian.Uint64(buffer[8:16])
 
+	gomodbus.Logger.Sugar().Infof("headerLength: %d, bodyLength: %d", headerLength, bodyLength)
 	headerBuffer := make([]byte, headerLength)
 	_, err = conn.Read(headerBuffer)
 	if err != nil {
-		gomodbus.Logger.Sugar().Errorf("failed to read header from connection: %v", err)
 		return nil, nil, err
 	}
 
 	header := Header{}
 	err = proto.Unmarshal(headerBuffer, &header)
 	if err != nil {
-		gomodbus.Logger.Sugar().Errorf("failed to unmarshal header: %v", err)
 		return nil, nil, err
 	}
 
 	bodyBuffer := make([]byte, bodyLength)
 	_, err = conn.Read(bodyBuffer)
 	if err != nil {
-		gomodbus.Logger.Sugar().Errorf("failed to read body from connection: %v", err)
 		return nil, nil, err
 	}
 
@@ -122,9 +121,9 @@ func sendResponse(conn net.Conn, header *Header, body []byte) error {
 	}
 
 	buffer := make([]byte, 16)
-	binary.BigEndian.PutUint64(buffer[0:7], uint64(len(headerBuffer)))
+	binary.BigEndian.PutUint64(buffer[0:8], uint64(len(headerBuffer)))
 	if body != nil {
-		binary.BigEndian.PutUint64(buffer[8:15], uint64(len(body)))
+		binary.BigEndian.PutUint64(buffer[8:16], uint64(len(body)))
 	}
 
 	buffer = append(buffer, headerBuffer...)
@@ -151,10 +150,13 @@ func (s *Socket) handleConnection(conn net.Conn) {
 			return
 		default:
 			header, bodyBuffer, err := receiveRequest(conn)
-			if err != nil {
-				gomodbus.Logger.Sugar().Errorf("failed to digest request: %v", err)
-				continue
-			}
+            if err != nil {
+                if opErr, ok := err.(*net.OpError); ok && opErr.Timeout() {
+                    continue // Timeout, check context and retry
+                }
+                gomodbus.Logger.Sugar().Errorf("failed to read from connection: %v", err)
+                return
+            }
 
 			switch header.Type {
 			case RequestType_NewTCPServerRequest:
@@ -204,6 +206,14 @@ func (s *Socket) handleConnection(conn net.Conn) {
 			case RequestType_DeleteInputRegistersRequest:
 				gomodbus.Logger.Sugar().Infof("received DeleteInputRegistersRequest")
 				s.handleDeleteInputRegistersRequest(bodyBuffer, conn)
+
+			case RequestType_StartServerRequest:
+				gomodbus.Logger.Sugar().Infof("received StartServerRequest")
+				s.handleStartServerRequest(conn)
+
+			case RequestType_StopServerRequest:
+				gomodbus.Logger.Sugar().Infof("received StopServerRequest")
+				s.handleStopServerRequest(conn)
 			}
 		}
 	}
@@ -458,6 +468,29 @@ func (s *Socket) handleDeleteInputRegistersRequest(bodyBuffer []byte, conn net.C
 	server.DeleteInputRegisters(s.server, byte(request.SlaveRequest.UnitId), addresses)
 	gomodbus.Logger.Sugar().Infof("deleted %d input registers from slave with unit ID %d", len(request.Addresses), request.SlaveRequest.UnitId)
 
+	response := &Header{
+		Type:   RequestType_ACK,
+		Length: 0,
+	}
+	sendResponse(conn, response, nil)
+}
+
+
+// handleStartServerRequest processes a request to start the server.
+func (s *Socket) handleStartServerRequest(conn net.Conn) {
+	go s.server.Start()
+	gomodbus.Logger.Sugar().Infof("started ModBus server")
+	response := &Header{
+		Type:   RequestType_ACK,
+		Length: 0,
+	}
+	sendResponse(conn, response, nil)
+}
+
+// handleStopServerRequest processes a request to stop the server.
+func (s *Socket) handleStopServerRequest(conn net.Conn) {
+	s.server.Stop()
+	gomodbus.Logger.Sugar().Infof("stopped ModBus server")
 	response := &Header{
 		Type:   RequestType_ACK,
 		Length: 0,

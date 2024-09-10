@@ -19,6 +19,8 @@ enum RequestType {
     DeleteHoldingRegistersRequest = 11;
     AddInputRegistersRequest = 12;
     DeleteInputRegistersRequest = 13;
+    StartServerRequest = 14;
+    StopServerRequest = 15;
 }
 
 message Header {
