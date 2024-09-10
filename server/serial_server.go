@@ -15,8 +15,8 @@ type SerialServer struct {
 	Port      string
 	BaudRate  int
 	DataBits  byte
-	Parity    serial.Parity
-	StopBits  serial.StopBits
+	Parity    byte
+	StopBits  byte
 	ByteOrder string
 	WordOrder string
 	Slaves    map[byte]*Slave
@@ -27,7 +27,7 @@ type SerialServer struct {
 	wg     sync.WaitGroup
 }
 
-func NewSerialServer(port string, baudRate int, dataBits byte, parity serial.Parity, stopBits serial.StopBits, byteOrder, wordOrder string) Server {
+func NewSerialServer(port string, baudRate int, dataBits byte, parity byte, stopBits byte, byteOrder, wordOrder string) Server {
 	ctx, cancel := context.WithCancel(context.Background())
 	return &SerialServer{
 		Port:      port,
@@ -76,8 +76,8 @@ func (s *SerialServer) Start() error {
 		Name:     s.Port,
 		Baud:     s.BaudRate,
 		Size:     s.DataBits,
-		Parity:   s.Parity,
-		StopBits: s.StopBits,
+		Parity:   serial.Parity(s.Parity),
+		StopBits: serial.StopBits(s.StopBits),
 	}
 
 	port, err := serial.OpenPort(config)

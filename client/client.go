@@ -17,24 +17,41 @@ type Client interface {
 	ReceiveResponse() ([]byte, error)
 }
 
+func CheckForException(responsePDU []byte) (bool, string) {
+	if responsePDU[0]&0x80 != 0 { // Check if the MSB is set, indicating an exception
+		exceptionCode := responsePDU[1]
+		exceptionMessage, exists := gomodbus.ModbusException[exceptionCode]
+		if !exists {
+			return true, "Unknown exception code"
+		}
+		return true, exceptionMessage
+	}
+	return false, ""
+}
+
 // ReadCoils reads the status of coils from a Modbus server
 func ReadCoils(c Client, unitID byte, address uint16, quantity uint16) ([]bool, error) {
 	// Create a new PDU for reading coils
 	request := pdu.NewPDUReadCoils(address, quantity)
 	requestBytes := request.ToBytes()
-	
+
 	// Send the request
 	err := c.SendRequest(unitID, requestBytes)
 	if err != nil {
 		return nil, err
 	}
-	
+
 	// Receive the response
 	responseBytes, err := c.ReceiveResponse()
 	if err != nil {
 		return nil, err
 	}
-	
+
+	exception, message := CheckForException(responseBytes)
+	if exception {
+		return nil, fmt.Errorf("receivedModbus exception: %s", message)
+	}
+
 	// Parse the response
 	var response pdu.PDUReadResponse
 	err = response.FromBytes(responseBytes)
@@ -64,19 +81,24 @@ func ReadDiscreteInputs(c Client, unitID byte, address uint16, quantity uint16) 
 	// Create a new PDU for reading discrete inputs
 	request := pdu.NewPDUReadDiscreteInputs(address, quantity)
 	requestBytes := request.ToBytes()
-	
+
 	// Send the request
 	err := c.SendRequest(unitID, requestBytes)
 	if err != nil {
 		return nil, err
 	}
-	
+
 	// Receive the response
 	responseBytes, err := c.ReceiveResponse()
 	if err != nil {
 		return nil, err
 	}
-	
+
+	exception, message := CheckForException(responseBytes)
+	if exception {
+		return nil, fmt.Errorf("received Modbus exception: %s", message)
+	}
+
 	// Parse the response
 	var response pdu.PDUReadResponse
 	err = response.FromBytes(responseBytes)
@@ -106,19 +128,24 @@ func ReadHoldingRegisters(c Client, unitID byte, address uint16, quantity uint16
 	// Create a new PDU for reading holding registers
 	request := pdu.NewPDUReadHoldingRegisters(address, quantity)
 	requestBytes := request.ToBytes()
-	
+
 	// Send the request
 	err := c.SendRequest(unitID, requestBytes)
 	if err != nil {
 		return nil, err
 	}
-	
+
 	// Receive the response
 	responseBytes, err := c.ReceiveResponse()
 	if err != nil {
 		return nil, err
 	}
-	
+
+	exception, message := CheckForException(responseBytes)
+	if exception {
+		return nil, fmt.Errorf("received Modbus exception: %s", message)
+	}
+
 	// Parse the response
 	var response pdu.PDUReadResponse
 	err = response.FromBytes(responseBytes)
@@ -146,19 +173,24 @@ func ReadInputRegisters(c Client, unitID byte, address uint16, quantity uint16) 
 	// Create a new PDU for reading input registers
 	request := pdu.NewPDUReadInputRegisters(address, quantity)
 	requestBytes := request.ToBytes()
-	
+
 	// Send the request
 	err := c.SendRequest(unitID, requestBytes)
 	if err != nil {
 		return nil, err
 	}
-	
+
 	// Receive the response
 	responseBytes, err := c.ReceiveResponse()
 	if err != nil {
 		return nil, err
 	}
-	
+
+	exception, message := CheckForException(responseBytes)
+	if exception {
+		return nil, fmt.Errorf("received Modbus exception: %s", message)
+	}
+
 	// Parse the response
 	var response pdu.PDUReadResponse
 	err = response.FromBytes(responseBytes)
@@ -186,19 +218,24 @@ func WriteSingleCoil(c Client, unitID byte, address uint16, value bool) error {
 	// Create a new PDU for writing a single coil
 	request := pdu.NewPDUWriteSingleCoil(address, value)
 	requestBytes := request.ToBytes()
-	
+
 	// Send the request
 	err := c.SendRequest(unitID, requestBytes)
 	if err != nil {
 		return err
 	}
-	
+
 	// Receive the response
 	responseBytes, err := c.ReceiveResponse()
 	if err != nil {
 		return err
 	}
-	
+
+	exception, message := CheckForException(responseBytes)
+	if exception {
+		return fmt.Errorf("received Modbus exception: %s", message)
+	}
+
 	// Parse the response
 	var response pdu.PDUWriteSingleCoilResponse
 	err = response.FromBytes(responseBytes)
@@ -226,19 +263,24 @@ func WriteMultipleCoils(c Client, unitID byte, address uint16, values []bool) er
 	// Create a new PDU for writing multiple coils
 	request := pdu.NewPDUWriteMultipleCoils(address, values)
 	requestBytes := request.ToBytes()
-	
+
 	// Send the request
 	err := c.SendRequest(unitID, requestBytes)
 	if err != nil {
 		return err
 	}
-	
+
 	// Receive the response
 	responseBytes, err := c.ReceiveResponse()
 	if err != nil {
 		return err
 	}
-	
+
+	exception, message := CheckForException(responseBytes)
+	if exception {
+		return fmt.Errorf("received Modbus exception: %s", message)
+	}
+
 	// Parse the response
 	var response pdu.PDUWriteMultipleCoilsResponse
 	err = response.FromBytes(responseBytes)
@@ -266,19 +308,24 @@ func WriteSingleRegister(c Client, unitID byte, address uint16, value []byte) er
 	// Create a new PDU for writing a single register
 	request := pdu.NewPDUWriteSingleRegister(address, value)
 	requestBytes := request.ToBytes()
-	
+
 	// Send the request
 	err := c.SendRequest(unitID, requestBytes)
 	if err != nil {
 		return err
 	}
-	
+
 	// Receive the response
 	responseBytes, err := c.ReceiveResponse()
 	if err != nil {
 		return err
 	}
-	
+
+	exception, message := CheckForException(responseBytes)
+	if exception {
+		return fmt.Errorf("received Modbus exception: %s", message)
+	}
+
 	// Parse the response
 	var response pdu.PDUWriteSingleRegisterResponse
 	err = response.FromBytes(responseBytes)
@@ -306,19 +353,24 @@ func WriteMultipleRegisters(c Client, unitID byte, address uint16, quantity uint
 	// Create a new PDU for writing multiple registers
 	request := pdu.NewPDUWriteMultipleRegisters(address, quantity, values)
 	requestBytes := request.ToBytes()
-	
+
 	// Send the request
 	err := c.SendRequest(unitID, requestBytes)
 	if err != nil {
 		return err
 	}
-	
+
 	// Receive the response
 	responseBytes, err := c.ReceiveResponse()
 	if err != nil {
 		return err
 	}
-	
+
+	exception, message := CheckForException(responseBytes)
+	if exception {
+		return fmt.Errorf("received Modbus exception: %s", message)
+	}
+
 	// Parse the response
 	var response pdu.PDUWriteMultipleRegistersResponse
 	err = response.FromBytes(responseBytes)
@@ -340,6 +392,3 @@ func WriteMultipleRegisters(c Client, unitID byte, address uint16, quantity uint
 
 	return nil
 }
-
-
-		
