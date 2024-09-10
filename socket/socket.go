@@ -26,11 +26,14 @@ type Socket struct {
 
 // NewSocket initializes a new Socket instance.
 func NewSocket() *Socket {
+	ctx, cancel := context.WithCancel(context.Background())
 	return &Socket{
 		addr: &net.UnixAddr{
 			Name: "/tmp/modbus.sock",
 			Net:  "unix",
 		},
+		ctx:    ctx,
+		cancel: cancel,
 	}
 }
 
