@@ -20,7 +20,7 @@ func TestSocket(t *testing.T) {
 	time.Sleep(1 * time.Second)
 
 	// Connect to the socket
-	conn, err := net.Dial("unix", "/tmp/modbus.sock")
+	conn, err := net.Dial("tcp", "127.0.0.1:1993")
 	if err != nil {
 		t.Fatalf("Failed to connect to socket: %v", err)
 	}

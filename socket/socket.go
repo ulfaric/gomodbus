@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/binary"
 	"net"
-	"os"
 	"sync"
 	"time"
 
@@ -15,8 +14,8 @@ import (
 
 // Socket struct represents a Unix socket server for ModBus communication.
 type Socket struct {
-	addr     *net.UnixAddr
-	listener *net.UnixListener
+	addr     string
+	listener net.Listener
 
 	server server.Server
 
@@ -29,10 +28,7 @@ type Socket struct {
 func NewSocket() *Socket {
 	ctx, cancel := context.WithCancel(context.Background())
 	return &Socket{
-		addr: &net.UnixAddr{
-			Name: "/tmp/modbus.sock",
-			Net:  "unix",
-		},
+		addr:   "127.0.0.1:1993",
 		ctx:    ctx,
 		cancel: cancel,
 	}
@@ -41,17 +37,12 @@ func NewSocket() *Socket {
 // Start begins listening for incoming connections on the Unix socket.
 func (s *Socket) Start() {
 
-	// Remove the existing socket file if it exists
-	if _, err := os.Stat(s.addr.Name); err == nil {
-		os.Remove(s.addr.Name)
-	}
-
-	listener, err := net.ListenUnix("unix", s.addr)
+	listener, err := net.Listen("tcp", s.addr)
 	if err != nil {
 		panic(err)
 	}
 	s.listener = listener
-	gomodbus.Logger.Sugar().Infof("ModBus unix socket started on %s", s.addr.Name)
+	gomodbus.Logger.Sugar().Infof("ModBus TCP socket started on %s", s.addr)
 	defer s.listener.Close()
 
 	for {
