@@ -21,6 +21,19 @@ enum RequestType {
     DeleteInputRegistersRequest = 13;
     StartServerRequest = 14;
     StopServerRequest = 15;
+
+    NewTCPClientRequest = 16;
+    NewSerialClientRequest = 17;
+    ReadCoilsRequest = 18;
+    ReadDiscreteInputsRequest = 19;
+    ReadHoldingRegistersRequest = 20;
+    ReadInputRegistersRequest = 21;
+    WriteCoilRequest = 22;
+    WriteCoilsRequest = 23;
+    WriteRegisterRequest = 24;
+    WriteRegistersRequest = 25;
+    ConnectRequest = 26;
+    DisconnectRequest = 27;
 }
 
 message Header {
@@ -82,6 +95,91 @@ message HoldingRegistersRequest {
 }
 
 message InputRegistersRequest {
+    SlaveRequest slave_request = 1;
+    uint32 address = 2;
+    repeated bytes values = 3;
+}
+
+message TCPClientRequest {
+    string host = 1;
+    int32 port = 2;
+    bool use_tls = 3;
+    string byte_order = 4;
+    string word_order = 5;
+    string cert_file = 6;
+    string key_file = 7;
+    string ca_file = 8;
+}
+
+message SerialClientRequest {
+    string port = 1;
+    int32 baudrate = 2;
+    uint32 databits = 3;
+    uint32 parity = 4;
+    uint32 stopbits = 5;
+    string byte_order = 6;
+    string word_order = 7;
+}
+
+message ReadCoils {
+    SlaveRequest slave_request = 1;
+    uint32 address = 2;
+    uint32 count = 3;
+}
+
+message ReadCoilsResponse {
+    repeated bool values = 1;
+}
+
+message ReadDiscreteInputs {
+    SlaveRequest slave_request = 1;
+    uint32 address = 2;
+    uint32 count = 3;
+}
+
+message ReadDiscreteInputsResponse {
+    repeated bool values = 1;
+}
+
+message ReadHoldingRegisters {
+    SlaveRequest slave_request = 1;
+    uint32 address = 2;
+    uint32 count = 3;
+}
+
+message ReadHoldingRegistersResponse {
+    repeated bytes values = 1;
+}
+
+message ReadInputRegisters {
+    SlaveRequest slave_request = 1;
+    uint32 address = 2;
+    uint32 count = 3;
+}
+
+message ReadInputRegistersResponse {
+    repeated bytes values = 1;
+}
+
+message WriteCoil {
+    SlaveRequest slave_request = 1;
+    uint32 address = 2;
+    bool value = 3;
+}
+
+message WriteCoils {
+    SlaveRequest slave_request = 1;
+    uint32 address = 2;
+    repeated bool values = 3;
+}
+
+message WriteRegister {
+    SlaveRequest slave_request = 1;
+    uint32 address = 2;
+    bytes value = 3;
+}
+
+message WriteRegisters {
     SlaveRequest slave_request = 1;
     uint32 address = 2;
     repeated bytes values = 3;

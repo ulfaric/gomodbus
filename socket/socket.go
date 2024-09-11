@@ -6,9 +6,11 @@ import (
 	"net"
 	"sync"
 	"time"
+	"io"
 
 	"github.com/ulfaric/gomodbus"
 	"github.com/ulfaric/gomodbus/server"
+	"github.com/ulfaric/gomodbus/client"
 	proto "google.golang.org/protobuf/proto"
 )
 
@@ -18,6 +20,7 @@ type Socket struct {
 	listener net.Listener
 
 	server server.Server
+	client client.Client
 
 	ctx    context.Context
 	cancel context.CancelFunc
@@ -71,9 +74,8 @@ func (s *Socket) Stop() {
 
 // receiveRequest reads and parses a request from the connection.
 func receiveRequest(conn net.Conn) (h *Header, body []byte, err error) {
-	conn.SetReadDeadline(time.Now().Add(1 * time.Second)) // Set a read deadline
 	buffer := make([]byte, 16)
-	_, err = conn.Read(buffer)
+	_, err = io.ReadFull(conn, buffer)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -83,7 +85,7 @@ func receiveRequest(conn net.Conn) (h *Header, body []byte, err error) {
 
 	gomodbus.Logger.Sugar().Infof("headerLength: %d, bodyLength: %d", headerLength, bodyLength)
 	headerBuffer := make([]byte, headerLength)
-	_, err = conn.Read(headerBuffer)
+	_, err = io.ReadFull(conn, headerBuffer)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -95,7 +97,7 @@ func receiveRequest(conn net.Conn) (h *Header, body []byte, err error) {
 	}
 
 	bodyBuffer := make([]byte, bodyLength)
-	_, err = conn.Read(bodyBuffer)
+	_, err = io.ReadFull(conn, bodyBuffer)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -140,6 +142,7 @@ func (s *Socket) handleConnection(conn net.Conn) {
 		case <-s.ctx.Done():
 			return
 		default:
+			conn.SetReadDeadline(time.Now().Add(5 * time.Second)) // Set a read deadline
 			header, bodyBuffer, err := receiveRequest(conn)
             if err != nil {
                 if opErr, ok := err.(*net.OpError); ok && opErr.Timeout() {
@@ -150,6 +153,8 @@ func (s *Socket) handleConnection(conn net.Conn) {
             }
 
 			switch header.Type {
+			
+			// Handle sever functions
 			case RequestType_NewTCPServerRequest:
 				gomodbus.Logger.Sugar().Infof("received NewTCPServerRequest")
 				s.handleNewTCPServerRequest(bodyBuffer, conn)
@@ -205,6 +210,8 @@ func (s *Socket) handleConnection(conn net.Conn) {
 			case RequestType_StopServerRequest:
 				gomodbus.Logger.Sugar().Infof("received StopServerRequest")
 				s.handleStopServerRequest(conn)
+
+			// Handle Client functions
 			}
 		}
 	}
