@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"time"
 
 	"github.com/ulfaric/gomodbus"
 	"github.com/ulfaric/gomodbus/adu"
@@ -112,6 +113,7 @@ func (client *TCPClient) Disconnect() error {
 }
 
 func (client *TCPClient) SendRequest(unitID byte, pduBytes []byte) error {
+	client.conn.SetDeadline(time.Now().Add(time.Millisecond * 100))
 	adu := adu.NewTCPADU(client.transactionID, unitID, pduBytes)
 	aduBytes := adu.ToBytes()
 	_, err := client.conn.Write(aduBytes)
@@ -125,8 +127,9 @@ func (client *TCPClient) SendRequest(unitID byte, pduBytes []byte) error {
 }
 
 func (client *TCPClient) ReceiveResponse() ([]byte, error) {
+	client.conn.SetDeadline(time.Now().Add(time.Millisecond * 100))
 	// Define a buffer with a size that can accommodate the expected response
-	buffer := make([]byte, 512) // Adjust the size as needed
+	buffer := make([]byte, 512)
 
 	// Read exactly the number of bytes into the buffer
 	n, err := client.conn.Read(buffer)
