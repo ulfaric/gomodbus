@@ -354,13 +354,19 @@ func handleWriteMultipleRegisters(slave *Slave, requestPDUBytes []byte) ([]byte,
 		return responsePDU.ToBytes(), nil
 	}
 
+	if len(requestPDU.Values) != int(requestPDU.Quantity)*2 {
+		gomodbus.Logger.Sugar().Errorf("invalid values length for write multiple registers, expected %d, got %d", requestPDU.Quantity*2, len(requestPDU.Values))
+		responsePDU := pdu.NewPDUErrorResponse(gomodbus.WriteMultipleRegisters, gomodbus.IllegalDataValue)
+		return responsePDU.ToBytes(), nil
+	}
+
 	for i := 0; i < int(requestPDU.Quantity); i++ {
 		if _, ok := slave.HoldingRegisters[requestPDU.StartingAddress+uint16(i)]; !ok {
 			gomodbus.Logger.Sugar().Errorf("holding register not found: %v", err)
 			responsePDU := pdu.NewPDUErrorResponse(gomodbus.WriteMultipleRegisters, gomodbus.IllegalDataAddress)
 			return responsePDU.ToBytes(), nil
 		}
-		slave.HoldingRegisters[requestPDU.StartingAddress+uint16(i)] = requestPDU.Values[2*i:]
+		slave.HoldingRegisters[requestPDU.StartingAddress+uint16(i)] = requestPDU.Values[2*i : 2*i+2]
 	}
 
 	responsePDU := pdu.NewWriteMultipleRegistersResponse(requestPDU.StartingAddress, requestPDU.Quantity)

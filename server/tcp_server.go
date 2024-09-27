@@ -8,6 +8,7 @@ import (
 	"net"
 	"os"
 	"sync"
+	"time"
 
 	"github.com/ulfaric/gomodbus"
 	"github.com/ulfaric/gomodbus/adu"
@@ -161,6 +162,7 @@ func (s *TCPServer) handleConnection(conn net.Conn) {
 		case <-s.ctx.Done():
 			return
 		default:
+			conn.SetReadDeadline(time.Now().Add(time.Second * 1))
 			n, err := conn.Read(buffer)
 			if err != nil {
 				if opErr, ok := err.(*net.OpError); ok && opErr.Timeout() {
@@ -168,6 +170,7 @@ func (s *TCPServer) handleConnection(conn net.Conn) {
 				}
 				return
 			}
+			gomodbus.Logger.Sugar().Debugf("server received request: %v", buffer[:n])
 
 			requestADU := &adu.TCPADU{}
 			err = requestADU.FromBytes(buffer[:n])

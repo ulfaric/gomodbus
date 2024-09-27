@@ -159,6 +159,12 @@ func ReadHoldingRegisters(c Client, unitID byte, address uint16, quantity uint16
 		return nil, fmt.Errorf("invalid function code, expected %d, got %d", gomodbus.ReadHoldingRegister, response.FunctionCode)
 	}
 
+	// Check if the data length is correct
+	if len(response.Data) != int(quantity)*2 {
+		gomodbus.Logger.Sugar().Errorf("invalid data length for ReadHoldingRegisters response: %v", err)
+		return nil, fmt.Errorf("invalid data length, expected %d, got %d", quantity*2, len(response.Data))
+	}
+
 	// Parse the register values from the response PDU
 	registers := make([]uint16, quantity)
 	for i := uint16(0); i < quantity; i++ {
@@ -202,6 +208,12 @@ func ReadInputRegisters(c Client, unitID byte, address uint16, quantity uint16) 
 	if response.FunctionCode != gomodbus.ReadInputRegister {
 		gomodbus.Logger.Sugar().Errorf("invalid function code for ReadInputRegisters response: %v", err)
 		return nil, fmt.Errorf("invalid function code, expected %d, got %d", gomodbus.ReadInputRegister, response.FunctionCode)
+	}
+
+	// Check if the data length is correct
+	if len(response.Data) != int(quantity)*2 {
+		gomodbus.Logger.Sugar().Errorf("invalid data length for ReadInputRegisters response: %v", err)
+		return nil, fmt.Errorf("invalid data length, expected %d, got %d", quantity*2, len(response.Data))
 	}
 
 	// Parse the register values from the response PDU
@@ -387,7 +399,7 @@ func WriteMultipleRegisters(c Client, unitID byte, address uint16, quantity uint
 	// Check if the response matches the request
 	if response.Address != address || response.Quantity != uint16(len(values)/2) {
 		gomodbus.Logger.Sugar().Errorf("response does not match request: %v", err)
-		return fmt.Errorf("response does not match request, expected address %d, got %d, expected quantity %d, got %d", address, response.Address, len(values), response.Quantity)
+		return fmt.Errorf("response does not match request, expected address %d, got %d, expected quantity %d, got %d", address, response.Address, len(values)/2, response.Quantity)
 	}
 
 	return nil

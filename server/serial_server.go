@@ -102,6 +102,7 @@ func (s *SerialServer) Start() error {
 				gomodbus.Logger.Sugar().Errorf("failed to read from serial port: %v", err)
 				continue
 			}
+			gomodbus.Logger.Sugar().Debugf("Server received request: %v", buffer[:n])
 
 			requestADU := &adu.SerialADU{}
 			err = requestADU.FromBytes(buffer[:n])

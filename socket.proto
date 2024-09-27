@@ -148,7 +148,7 @@ message ReadHoldingRegisters {
 }
 
 message ReadHoldingRegistersResponse {
-    repeated bytes values = 1;
+    bytes values = 1;
 }
 
 message ReadInputRegisters {
@@ -158,7 +158,7 @@ message ReadInputRegisters {
 }
 
 message ReadInputRegistersResponse {
-    repeated bytes values = 1;
+    bytes values = 1;
 }
 
 message WriteCoil {
@@ -182,5 +182,5 @@ message WriteRegister {
 message WriteRegisters {
     SlaveRequest slave_request = 1;
     uint32 address = 2;
-    repeated bytes values = 3;
+    bytes values = 3;
 }

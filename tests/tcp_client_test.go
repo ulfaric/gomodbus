@@ -51,7 +51,7 @@ func TestTCPClient_ReadDiscreteInputs(t *testing.T) {
 		t.Fatalf("Failed to connect: %v", err)
 	}
 
-	discreteInputs, err := c.ReadDiscreteInputs(client, 1, 1, 1)
+	discreteInputs, err := c.ReadDiscreteInputs(client, 1, 1, 10)
 	if err != nil {
 		t.Fatalf("Failed to read discrete inputs: %v", err)
 	}
@@ -71,7 +71,7 @@ func TestTCPClient_ReadHoldingRegisters(t *testing.T) {
 		t.Fatalf("Failed to connect: %v", err)
 	}
 
-	registers, err := c.ReadHoldingRegisters(client, 1, 1, 1)
+	registers, err := c.ReadHoldingRegisters(client, 1, 1, 10)
 	if err != nil {
 		t.Fatalf("Failed to read holding registers: %v", err)
 	}
@@ -91,7 +91,7 @@ func TestTCPClient_ReadInputRegisters(t *testing.T) {
 		t.Fatalf("Failed to connect: %v", err)
 	}
 
-	registers, err := c.ReadInputRegisters(client, 1, 1, 1)
+	registers, err := c.ReadInputRegisters(client, 1, 1, 10)
 	if err != nil {
 		t.Fatalf("Failed to read input registers: %v", err)
 	}
