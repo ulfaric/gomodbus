@@ -39,6 +39,7 @@ enum RequestType {
 message Header {
     RequestType type = 1;
     uint64 length = 2;
+    string error = 3;
 }
 
 message TCPServerRequest {

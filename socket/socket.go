@@ -141,10 +141,11 @@ func (*Socket) sendACK(conn net.Conn) {
 	sendResponse(conn, response, nil)
 }
 
-func (*Socket) sendNACK(conn net.Conn) {
+func (*Socket) sendNACK(conn net.Conn, err error) {
 	response := &Header{
 		Type:   RequestType_NACK,
 		Length: 0,
+		Error:  err.Error(),
 	}
 	gomodbus.Logger.Sugar().Infof("sending NACK")
 	sendResponse(conn, response, nil)
@@ -272,11 +273,11 @@ func (s *Socket) handleConnection(conn net.Conn) {
 
 			case RequestType_ConnectRequest:
 				gomodbus.Logger.Sugar().Infof("received ConnectRequest")
-				s.handleConnectRequest(bodyBuffer, conn)
+				s.handleConnectRequest(conn)
 
 			case RequestType_DisconnectRequest:
 				gomodbus.Logger.Sugar().Infof("received DisconnectRequest")
-				s.handleDisconnectRequest(bodyBuffer, conn)
+				s.handleDisconnectRequest(conn)
 			}
 		}
 	}
@@ -288,7 +289,7 @@ func (s *Socket) handleNewTCPServerRequest(bodyBuffer []byte, conn net.Conn) {
 	err := proto.Unmarshal(bodyBuffer, &request)
 	if err != nil {
 		gomodbus.Logger.Sugar().Errorf("failed to unmarshal NewTCPServerRequest: %v", err)
-		s.sendNACK(conn)
+		s.sendNACK(conn, err)
 		return
 	}
 
@@ -314,7 +315,7 @@ func (s *Socket) handleNewSerialServerRequest(bodyBuffer []byte, conn net.Conn) 
 	err := proto.Unmarshal(bodyBuffer, &request)
 	if err != nil {
 		gomodbus.Logger.Sugar().Errorf("failed to unmarshal NewSerialServerRequest: %v", err)
-		s.sendNACK(conn)
+		s.sendNACK(conn, err)
 		return
 	}
 
@@ -339,7 +340,7 @@ func (s *Socket) handleNewSlaveRequest(bodyBuffer []byte, conn net.Conn) {
 	err := proto.Unmarshal(bodyBuffer, &request)
 	if err != nil {
 		gomodbus.Logger.Sugar().Errorf("failed to unmarshal NewSlaveRequest: %v", err)
-		s.sendNACK(conn)
+		s.sendNACK(conn, err)
 		return
 	}
 
@@ -355,7 +356,7 @@ func (s *Socket) handleRemoveSlaveRequest(bodyBuffer []byte, conn net.Conn) {
 	err := proto.Unmarshal(bodyBuffer, &request)
 	if err != nil {
 		gomodbus.Logger.Sugar().Errorf("failed to unmarshal RemoveSlaveRequest: %v", err)
-		s.sendNACK(conn)
+		s.sendNACK(conn, err)
 		return
 	}
 
@@ -371,7 +372,7 @@ func (s *Socket) handleAddCoilsRequest(bodyBuffer []byte, conn net.Conn) {
 	err := proto.Unmarshal(bodyBuffer, &request)
 	if err != nil {
 		gomodbus.Logger.Sugar().Errorf("failed to unmarshal AddCoilsRequest: %v", err)
-		s.sendNACK(conn)
+		s.sendNACK(conn, err)
 		return
 	}
 
@@ -387,7 +388,7 @@ func (s *Socket) handleDeleteCoilsRequest(bodyBuffer []byte, conn net.Conn) {
 	err := proto.Unmarshal(bodyBuffer, &request)
 	if err != nil {
 		gomodbus.Logger.Sugar().Errorf("failed to unmarshal DeleteCoilsRequest: %v", err)
-		s.sendNACK(conn)
+		s.sendNACK(conn, err)
 		return
 	}
 	addresses := make([]uint16, len(request.Addresses))
@@ -406,7 +407,7 @@ func (s *Socket) handleAddDiscreteInputsRequest(bodyBuffer []byte, conn net.Conn
 	err := proto.Unmarshal(bodyBuffer, &request)
 	if err != nil {
 		gomodbus.Logger.Sugar().Errorf("failed to unmarshal AddDiscreteInputsRequest: %v", err)
-		s.sendNACK(conn)
+		s.sendNACK(conn, err)
 		return
 	}
 	server.AddDiscreteInputs(s.server, byte(request.SlaveRequest.UnitId), uint16(request.Address), request.Values)
@@ -421,6 +422,7 @@ func (s *Socket) handleDeleteDiscreteInputsRequest(bodyBuffer []byte, conn net.C
 	err := proto.Unmarshal(bodyBuffer, &request)
 	if err != nil {
 		gomodbus.Logger.Sugar().Errorf("failed to unmarshal DeleteDiscreteInputsRequest: %v", err)
+		s.sendNACK(conn, err)
 		return
 	}
 	addresses := make([]uint16, len(request.Addresses))
@@ -439,6 +441,7 @@ func (s *Socket) handleAddHoldingRegistersRequest(bodyBuffer []byte, conn net.Co
 	err := proto.Unmarshal(bodyBuffer, &request)
 	if err != nil {
 		gomodbus.Logger.Sugar().Errorf("failed to unmarshal AddHoldingRegistersRequest: %v", err)
+		s.sendNACK(conn, err)
 		return
 	}
 	server.AddHoldingRegisters(s.server, byte(request.SlaveRequest.UnitId), uint16(request.Address), request.Values)
@@ -453,6 +456,7 @@ func (s *Socket) handleDeleteHoldingRegistersRequest(bodyBuffer []byte, conn net
 	err := proto.Unmarshal(bodyBuffer, &request)
 	if err != nil {
 		gomodbus.Logger.Sugar().Errorf("failed to unmarshal DeleteHoldingRegistersRequest: %v", err)
+		s.sendNACK(conn, err)
 		return
 	}
 	addresses := make([]uint16, len(request.Addresses))
@@ -471,6 +475,7 @@ func (s *Socket) handleAddInputRegistersRequest(bodyBuffer []byte, conn net.Conn
 	err := proto.Unmarshal(bodyBuffer, &request)
 	if err != nil {
 		gomodbus.Logger.Sugar().Errorf("failed to unmarshal AddInputRegistersRequest: %v", err)
+		s.sendNACK(conn, err)
 		return
 	}
 	server.AddInputRegisters(s.server, byte(request.SlaveRequest.UnitId), uint16(request.Address), request.Values)
@@ -485,6 +490,7 @@ func (s *Socket) handleDeleteInputRegistersRequest(bodyBuffer []byte, conn net.C
 	err := proto.Unmarshal(bodyBuffer, &request)
 	if err != nil {
 		gomodbus.Logger.Sugar().Errorf("failed to unmarshal DeleteInputRegistersRequest: %v", err)
+		s.sendNACK(conn, err)
 		return
 	}
 	addresses := make([]uint16, len(request.Addresses))
@@ -517,6 +523,7 @@ func (s *Socket) handleNewTCPClientRequest(bodyBuffer []byte, conn net.Conn) {
 	err := proto.Unmarshal(bodyBuffer, &request)
 	if err != nil {
 		gomodbus.Logger.Sugar().Errorf("failed to unmarshal NewTCPClientRequest: %v", err)
+		s.sendNACK(conn, err)
 		return
 	}
 
@@ -540,6 +547,7 @@ func (s *Socket) handleNewSerialClientRequest(bodyBuffer []byte, conn net.Conn) 
 	err := proto.Unmarshal(bodyBuffer, &request)
 	if err != nil {
 		gomodbus.Logger.Sugar().Errorf("failed to unmarshal NewSerialClientRequest: %v", err)
+		s.sendNACK(conn, err)
 		return
 	}
 
@@ -562,14 +570,14 @@ func (s *Socket) handleReadCoilsRequest(bodyBuffer []byte, conn net.Conn) {
 	err := proto.Unmarshal(bodyBuffer, &request)
 	if err != nil {
 		gomodbus.Logger.Sugar().Errorf("failed to unmarshal ReadCoilsRequest: %v", err)
-		s.sendNACK(conn)
+		s.sendNACK(conn, err)
 		return
 	}
 
 	response, err := client.ReadCoils(s.client, byte(request.SlaveRequest.UnitId), uint16(request.Address), uint16(request.Count))
 	if err != nil {
 		gomodbus.Logger.Sugar().Errorf("failed to read coils: %v", err)
-		s.sendNACK(conn)
+		s.sendNACK(conn, err)
 		return
 	}
 
@@ -579,7 +587,7 @@ func (s *Socket) handleReadCoilsRequest(bodyBuffer []byte, conn net.Conn) {
 	readCoilsResponseBuffer, err := proto.Marshal(readCoilsResponse)
 	if err != nil {
 		gomodbus.Logger.Sugar().Errorf("failed to marshal ReadCoilsResponse: %v", err)
-		s.sendNACK(conn)
+		s.sendNACK(conn, err)
 		return
 	}
 
@@ -596,14 +604,14 @@ func (s *Socket) handleReadDiscreteInputsRequest(bodyBuffer []byte, conn net.Con
 	err := proto.Unmarshal(bodyBuffer, &request)
 	if err != nil {
 		gomodbus.Logger.Sugar().Errorf("failed to unmarshal ReadDiscreteInputsRequest: %v", err)
-		s.sendNACK(conn)
+		s.sendNACK(conn, err)
 		return
 	}
 
 	response, err := client.ReadDiscreteInputs(s.client, byte(request.SlaveRequest.UnitId), uint16(request.Address), uint16(request.Count))
 	if err != nil {
 		gomodbus.Logger.Sugar().Errorf("failed to read discrete inputs: %v", err)
-		s.sendNACK(conn)
+		s.sendNACK(conn, err)
 		return
 	}
 
@@ -613,7 +621,7 @@ func (s *Socket) handleReadDiscreteInputsRequest(bodyBuffer []byte, conn net.Con
 	readDiscreteInputsResponseBuffer, err := proto.Marshal(readDiscreteInputsResponse)
 	if err != nil {
 		gomodbus.Logger.Sugar().Errorf("failed to marshal ReadDiscreteInputsResponse: %v", err)
-		s.sendNACK(conn)
+		s.sendNACK(conn, err)
 		return
 	}
 
@@ -630,14 +638,14 @@ func (s *Socket) handleReadHoldingRegistersRequest(bodyBuffer []byte, conn net.C
 	err := proto.Unmarshal(bodyBuffer, &request)
 	if err != nil {
 		gomodbus.Logger.Sugar().Errorf("failed to unmarshal ReadHoldingRegistersRequest: %v", err)
-		s.sendNACK(conn)
+		s.sendNACK(conn, err)
 		return
 	}
 
 	response, err := client.ReadHoldingRegisters(s.client, byte(request.SlaveRequest.UnitId), uint16(request.Address), uint16(request.Count))
 	if err != nil {
 		gomodbus.Logger.Sugar().Errorf("failed to read holding registers: %v", err)
-		s.sendNACK(conn)
+		s.sendNACK(conn, err)
 		return
 	}
 
@@ -652,7 +660,7 @@ func (s *Socket) handleReadHoldingRegistersRequest(bodyBuffer []byte, conn net.C
 	readHoldingRegistersResponseBuffer, err := proto.Marshal(readHoldingRegistersResponse)
 	if err != nil {
 		gomodbus.Logger.Sugar().Errorf("failed to marshal ReadHoldingRegistersResponse: %v", err)
-		s.sendNACK(conn)
+		s.sendNACK(conn, err)
 		return
 	}
 
@@ -669,14 +677,14 @@ func (s *Socket) handleReadInputRegistersRequest(bodyBuffer []byte, conn net.Con
 	err := proto.Unmarshal(bodyBuffer, &request)
 	if err != nil {
 		gomodbus.Logger.Sugar().Errorf("failed to unmarshal ReadInputRegistersRequest: %v", err)
-		s.sendNACK(conn)
+		s.sendNACK(conn, err)
 		return
 	}
 
 	response, err := client.ReadInputRegisters(s.client, byte(request.SlaveRequest.UnitId), uint16(request.Address), uint16(request.Count))
 	if err != nil {
 		gomodbus.Logger.Sugar().Errorf("failed to read input registers: %v", err)
-		s.sendNACK(conn)
+		s.sendNACK(conn, err)
 		return
 	}
 
@@ -691,7 +699,7 @@ func (s *Socket) handleReadInputRegistersRequest(bodyBuffer []byte, conn net.Con
 	readInputRegistersResponseBuffer, err := proto.Marshal(readInputRegistersResponse)
 	if err != nil {
 		gomodbus.Logger.Sugar().Errorf("failed to marshal ReadInputRegistersResponse: %v", err)
-		s.sendNACK(conn)
+		s.sendNACK(conn, err)
 		return
 	}
 
@@ -708,14 +716,14 @@ func (s *Socket) handleWriteCoilRequest(bodyBuffer []byte, conn net.Conn) {
 	err := proto.Unmarshal(bodyBuffer, &request)
 	if err != nil {
 		gomodbus.Logger.Sugar().Errorf("failed to unmarshal WriteCoilRequest: %v", err)
-		s.sendNACK(conn)
+		s.sendNACK(conn, err)
 		return
 	}
 
 	err = client.WriteSingleCoil(s.client, byte(request.SlaveRequest.UnitId), uint16(request.Address), request.Value)
 	if err != nil {
 		gomodbus.Logger.Sugar().Errorf("failed to write coil: %v", err)
-		s.sendNACK(conn)
+		s.sendNACK(conn, err)
 		return
 	}
 
@@ -728,13 +736,13 @@ func (s *Socket) handleWriteCoilsRequest(bodyBuffer []byte, conn net.Conn) {
 	err := proto.Unmarshal(bodyBuffer, &request)
 	if err != nil {
 		gomodbus.Logger.Sugar().Errorf("failed to unmarshal WriteCoilsRequest: %v", err)
-		s.sendNACK(conn)
+		s.sendNACK(conn, err)
 		return
 	}
 	err = client.WriteMultipleCoils(s.client, byte(request.SlaveRequest.UnitId), uint16(request.Address), request.Values)
 	if err != nil {
 		gomodbus.Logger.Sugar().Errorf("failed to write coils: %v", err)
-		s.sendNACK(conn)
+		s.sendNACK(conn, err)
 		return
 	}
 
@@ -747,14 +755,14 @@ func (s *Socket) handleWriteRegisterRequest(bodyBuffer []byte, conn net.Conn) {
 	err := proto.Unmarshal(bodyBuffer, &request)
 	if err != nil {
 		gomodbus.Logger.Sugar().Errorf("failed to unmarshal WriteRegisterRequest: %v", err)
-		s.sendNACK(conn)
+		s.sendNACK(conn, err)
 		return
 	}
 
 	err = client.WriteSingleRegister(s.client, byte(request.SlaveRequest.UnitId), uint16(request.Address), request.Value)
 	if err != nil {
 		gomodbus.Logger.Sugar().Errorf("failed to write register: %v", err)
-		s.sendNACK(conn)
+		s.sendNACK(conn, err)
 		return
 	}
 
@@ -767,14 +775,14 @@ func (s *Socket) handleWriteRegistersRequest(bodyBuffer []byte, conn net.Conn) {
 	err := proto.Unmarshal(bodyBuffer, &request)
 	if err != nil {
 		gomodbus.Logger.Sugar().Errorf("failed to unmarshal WriteRegistersRequest: %v", err)
-		s.sendNACK(conn)
+		s.sendNACK(conn, err)
 		return
 	}
 
 	err = client.WriteMultipleRegisters(s.client, byte(request.SlaveRequest.UnitId), uint16(request.Address), uint16(len(request.Values)/2), request.Values)
 	if err != nil {
 		gomodbus.Logger.Sugar().Errorf("failed to write registers: %v", err)
-		s.sendNACK(conn)
+		s.sendNACK(conn, err)
 		return
 	}
 
@@ -782,12 +790,12 @@ func (s *Socket) handleWriteRegistersRequest(bodyBuffer []byte, conn net.Conn) {
 }
 
 // handleConnectRequest processes a request to connect to a slave.
-func (s *Socket) handleConnectRequest(bodyBuffer []byte, conn net.Conn) {
+func (s *Socket) handleConnectRequest(conn net.Conn) {
 
 	err := s.client.Connect()
 	if err != nil {
 		gomodbus.Logger.Sugar().Errorf("failed to connect: %v", err)
-		s.sendNACK(conn)
+		s.sendNACK(conn, err)
 		return
 	}
 
@@ -797,12 +805,12 @@ func (s *Socket) handleConnectRequest(bodyBuffer []byte, conn net.Conn) {
 }
 
 // handleDisconnectRequest processes a request to disconnect from a slave.
-func (s *Socket) handleDisconnectRequest(bodyBuffer []byte, conn net.Conn) {
+func (s *Socket) handleDisconnectRequest(conn net.Conn) {
 
 	err := s.client.Disconnect()
 	if err != nil {
 		gomodbus.Logger.Sugar().Errorf("failed to disconnect: %v", err)
-		s.sendNACK(conn)
+		s.sendNACK(conn, err)
 		return
 	}
 
