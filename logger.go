@@ -23,7 +23,7 @@ type CustomColorEncoder struct {
 }
 
 func (c *CustomColorEncoder) EncodeEntry(entry zapcore.Entry, fields []zapcore.Field) (*buffer.Buffer, error) {
-	buf, err := c.Encoder.EncodeEntry(entry, fields)
+	_, err := c.Encoder.EncodeEntry(entry, fields)
 	if err != nil {
 		return nil, err
 	}
@@ -43,11 +43,14 @@ func (c *CustomColorEncoder) EncodeEntry(entry zapcore.Entry, fields []zapcore.F
 		color = colorReset
 	}
 
-	// Prepend color and append reset color code
+	// Create a new buffer for the custom format
 	coloredBuf := buffer.NewPool().Get()
 	coloredBuf.AppendString(color)
-	coloredBuf.AppendString(buf.String())
+	coloredBuf.AppendString(entry.Level.CapitalString()) // Uppercase log level
+	coloredBuf.AppendString("    ")                     // Four spaces
+	coloredBuf.AppendString(entry.Message)              // Log message
 	coloredBuf.AppendString(colorReset)
+	coloredBuf.AppendString("\n")                       // Newline
 
 	return coloredBuf, nil
 }
@@ -55,8 +58,19 @@ func (c *CustomColorEncoder) EncodeEntry(entry zapcore.Entry, fields []zapcore.F
 // InitializeLogger initializes a reusable zap logger with color support
 func InitializeLogger() *zap.Logger {
 	// Create a custom encoder config
-	encoderConfig := zap.NewProductionEncoderConfig()
-	encoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
+	encoderConfig := zapcore.EncoderConfig{
+		TimeKey:        "",
+		LevelKey:       "",
+		NameKey:        "",
+		CallerKey:      "",
+		MessageKey:     "",
+		StacktraceKey:  "",
+		LineEnding:     zapcore.DefaultLineEnding,
+		EncodeLevel:    zapcore.CapitalColorLevelEncoder, // Capitalize and colorize log level
+		EncodeTime:     zapcore.ISO8601TimeEncoder,       // Use ISO8601 time format
+		EncodeDuration: zapcore.StringDurationEncoder,
+		EncodeCaller:   zapcore.ShortCallerEncoder,
+	}
 
 	// Create a custom color encoder
 	customEncoder := &CustomColorEncoder{

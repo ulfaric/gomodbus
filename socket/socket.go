@@ -512,7 +512,6 @@ func (s *Socket) handleStartServerRequest(conn net.Conn) {
 
 	err := <-errChan
 	if err != nil {
-		gomodbus.Logger.Sugar().Errorf("failed to start ModBus server: %v", err)
 		s.sendNACK(conn, err)
 		return
 	}
