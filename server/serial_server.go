@@ -88,9 +88,20 @@ func (s *SerialServer) Start() error {
 	defer port.Close()
 
 	gomodbus.Logger.Sugar().Infof("Modbus serial server started on %s", s.Port)
+	s.wg.Add(1)
+	go s.handleRequest(port)
+	return nil
+}
 
+func (s *SerialServer) Stop() error {
+	s.cancel()
+	s.wg.Wait()
+	return nil
+}
+
+func (s *SerialServer) handleRequest(port *serial.Port) error {
+	defer s.wg.Done()
 	gomodbus.Logger.Sugar().Info("Waiting for requests...")
-
 	buffer := make([]byte, 256)
 	for {
 		select {
@@ -132,10 +143,4 @@ func (s *SerialServer) Start() error {
 			}
 		}
 	}
-}
-
-func (s *SerialServer) Stop() error {
-	s.cancel()
-	s.wg.Wait()
-	return nil
 }

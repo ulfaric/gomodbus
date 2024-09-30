@@ -124,12 +124,25 @@ func (s *TCPServer) Start() error {
 	}
 	defer listener.Close()
 
+	s.wg.Add(1)
+	go s.acceptConnection(listener)
+	return nil
+}
+
+func (s *TCPServer) Stop() error {
+	s.cancel()
+	s.wg.Wait()
+	return nil
+}
+
+func (s *TCPServer) acceptConnection(listener net.Listener) {
+	defer s.wg.Done()
 	gomodbus.Logger.Info("Waiting for connections...")
 	for {
 		select {
 		case <-s.ctx.Done():
 			gomodbus.Logger.Info("Shutting down server...")
-			return nil
+			return
 		default:
 			conn, err := listener.Accept()
 			if err != nil {
@@ -144,12 +157,6 @@ func (s *TCPServer) Start() error {
 			go s.handleConnection(conn)
 		}
 	}
-}
-
-func (s *TCPServer) Stop() error {
-	s.cancel()
-	s.wg.Wait()
-	return nil
 }
 
 func (s *TCPServer) handleConnection(conn net.Conn) {

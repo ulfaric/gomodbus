@@ -505,12 +505,7 @@ func (s *Socket) handleDeleteInputRegistersRequest(bodyBuffer []byte, conn net.C
 
 // handleStartServerRequest processes a request to start the server.
 func (s *Socket) handleStartServerRequest(conn net.Conn) {
-	errChan := make(chan error, 1)
-	go func() {
-		errChan <- s.server.Start()
-	}()
-
-	err := <-errChan
+	err := s.server.Start()
 	if err != nil {
 		s.sendNACK(conn, err)
 		return
