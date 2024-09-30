@@ -60,7 +60,7 @@ func (s *Socket) Start() {
 				gomodbus.Logger.Sugar().Errorf("failed to accept connection: %v", err)
 				continue
 			}
-			gomodbus.Logger.Sugar().Infof("connection accepted: %v", conn.LocalAddr())
+			gomodbus.Logger.Sugar().Debugf("connection accepted: %v", conn.LocalAddr())
 			s.wg.Add(1)
 			go s.handleConnection(conn)
 		}
@@ -84,7 +84,7 @@ func receiveRequest(conn net.Conn) (h *Header, body []byte, err error) {
 	headerLength := binary.BigEndian.Uint64(buffer[0:8])
 	bodyLength := binary.BigEndian.Uint64(buffer[8:16])
 
-	gomodbus.Logger.Sugar().Infof("headerLength: %d, bodyLength: %d", headerLength, bodyLength)
+	gomodbus.Logger.Sugar().Debugf("headerLength: %d, bodyLength: %d", headerLength, bodyLength)
 	headerBuffer := make([]byte, headerLength)
 	_, err = io.ReadFull(conn, headerBuffer)
 	if err != nil {
@@ -137,7 +137,7 @@ func (*Socket) sendACK(conn net.Conn) {
 		Type:   RequestType_ACK,
 		Length: 0,
 	}
-	gomodbus.Logger.Sugar().Infof("sending ACK")
+	gomodbus.Logger.Sugar().Debugf("sending ACK")
 	sendResponse(conn, response, nil)
 }
 
@@ -147,7 +147,7 @@ func (*Socket) sendNACK(conn net.Conn, err error) {
 		Length: 0,
 		Error:  err.Error(),
 	}
-	gomodbus.Logger.Sugar().Infof("sending NACK")
+	gomodbus.Logger.Sugar().Debugf("sending NACK")
 	sendResponse(conn, response, nil)
 }
 
@@ -175,108 +175,108 @@ func (s *Socket) handleConnection(conn net.Conn) {
 
 			// Handle sever functions
 			case RequestType_NewTCPServerRequest:
-				gomodbus.Logger.Sugar().Infof("received NewTCPServerRequest")
+				gomodbus.Logger.Sugar().Debugf("received NewTCPServerRequest")
 				s.handleNewTCPServerRequest(bodyBuffer, conn)
 
 			case RequestType_NewSerialServerRequest:
-				gomodbus.Logger.Sugar().Infof("received NewSerialServerRequest")
+				gomodbus.Logger.Sugar().Debugf("received NewSerialServerRequest")
 				s.handleNewSerialServerRequest(bodyBuffer, conn)
 
 			case RequestType_NewSlaveRequest:
-				gomodbus.Logger.Sugar().Infof("received NewSlaveRequest")
+				gomodbus.Logger.Sugar().Debugf("received NewSlaveRequest")
 				s.handleNewSlaveRequest(bodyBuffer, conn)
 
 			case RequestType_RemoveSlaveRequest:
-				gomodbus.Logger.Sugar().Infof("received RemoveSlaveRequest")
+				gomodbus.Logger.Sugar().Debugf("received RemoveSlaveRequest")
 				s.handleRemoveSlaveRequest(bodyBuffer, conn)
 
 			case RequestType_AddCoilsRequest:
-				gomodbus.Logger.Sugar().Infof("received AddCoilsRequest")
+				gomodbus.Logger.Sugar().Debugf("received AddCoilsRequest")
 				s.handleAddCoilsRequest(bodyBuffer, conn)
 
 			case RequestType_DeleteCoilsRequest:
-				gomodbus.Logger.Sugar().Infof("received DeleteCoilsRequest")
+				gomodbus.Logger.Sugar().Debugf("received DeleteCoilsRequest")
 				s.handleDeleteCoilsRequest(bodyBuffer, conn)
 
 			case RequestType_AddDiscreteInputsRequest:
-				gomodbus.Logger.Sugar().Infof("received AddDiscreteInputsRequest")
+				gomodbus.Logger.Sugar().Debugf("received AddDiscreteInputsRequest")
 				s.handleAddDiscreteInputsRequest(bodyBuffer, conn)
 
 			case RequestType_DeleteDiscreteInputsRequest:
-				gomodbus.Logger.Sugar().Infof("received DeleteDiscreteInputsRequest")
+				gomodbus.Logger.Sugar().Debugf("received DeleteDiscreteInputsRequest")
 				s.handleDeleteDiscreteInputsRequest(bodyBuffer, conn)
 
 			case RequestType_AddHoldingRegistersRequest:
-				gomodbus.Logger.Sugar().Infof("received AddHoldingRegistersRequest")
+				gomodbus.Logger.Sugar().Debugf("received AddHoldingRegistersRequest")
 				s.handleAddHoldingRegistersRequest(bodyBuffer, conn)
 
 			case RequestType_DeleteHoldingRegistersRequest:
-				gomodbus.Logger.Sugar().Infof("received DeleteHoldingRegistersRequest")
+				gomodbus.Logger.Sugar().Debugf("received DeleteHoldingRegistersRequest")
 				s.handleDeleteHoldingRegistersRequest(bodyBuffer, conn)
 
 			case RequestType_AddInputRegistersRequest:
-				gomodbus.Logger.Sugar().Infof("received AddInputRegistersRequest")
+				gomodbus.Logger.Sugar().Debugf("received AddInputRegistersRequest")
 				s.handleAddInputRegistersRequest(bodyBuffer, conn)
 
 			case RequestType_DeleteInputRegistersRequest:
-				gomodbus.Logger.Sugar().Infof("received DeleteInputRegistersRequest")
+				gomodbus.Logger.Sugar().Debugf("received DeleteInputRegistersRequest")
 				s.handleDeleteInputRegistersRequest(bodyBuffer, conn)
 
 			case RequestType_StartServerRequest:
-				gomodbus.Logger.Sugar().Infof("received StartServerRequest")
+				gomodbus.Logger.Sugar().Debugf("received StartServerRequest")
 				s.handleStartServerRequest(conn)
 
 			case RequestType_StopServerRequest:
-				gomodbus.Logger.Sugar().Infof("received StopServerRequest")
+				gomodbus.Logger.Sugar().Debugf("received StopServerRequest")
 				s.handleStopServerRequest(conn)
 
 			// Handle Client functions
 			case RequestType_NewTCPClientRequest:
-				gomodbus.Logger.Sugar().Infof("received NewTCPClientRequest")
+				gomodbus.Logger.Sugar().Debugf("received NewTCPClientRequest")
 				s.handleNewTCPClientRequest(bodyBuffer, conn)
 
 			case RequestType_NewSerialClientRequest:
-				gomodbus.Logger.Sugar().Infof("received NewSerialClientRequest")
+				gomodbus.Logger.Sugar().Debugf("received NewSerialClientRequest")
 				s.handleNewSerialClientRequest(bodyBuffer, conn)
 
 			case RequestType_ReadCoilsRequest:
-				gomodbus.Logger.Sugar().Infof("received ReadCoilsRequest")
+				gomodbus.Logger.Sugar().Debugf("received ReadCoilsRequest")
 				s.handleReadCoilsRequest(bodyBuffer, conn)
 
 			case RequestType_ReadDiscreteInputsRequest:
-				gomodbus.Logger.Sugar().Infof("received ReadDiscreteInputsRequest")
+				gomodbus.Logger.Sugar().Debugf("received ReadDiscreteInputsRequest")
 				s.handleReadDiscreteInputsRequest(bodyBuffer, conn)
 
 			case RequestType_ReadHoldingRegistersRequest:
-				gomodbus.Logger.Sugar().Infof("received ReadHoldingRegistersRequest")
+				gomodbus.Logger.Sugar().Debugf("received ReadHoldingRegistersRequest")
 				s.handleReadHoldingRegistersRequest(bodyBuffer, conn)
 
 			case RequestType_ReadInputRegistersRequest:
-				gomodbus.Logger.Sugar().Infof("received ReadInputRegistersRequest")
+				gomodbus.Logger.Sugar().Debugf("received ReadInputRegistersRequest")
 				s.handleReadInputRegistersRequest(bodyBuffer, conn)
 
 			case RequestType_WriteCoilRequest:
-				gomodbus.Logger.Sugar().Infof("received WriteCoilRequest")
+				gomodbus.Logger.Sugar().Debugf("received WriteCoilRequest")
 				s.handleWriteCoilRequest(bodyBuffer, conn)
 
 			case RequestType_WriteCoilsRequest:
-				gomodbus.Logger.Sugar().Infof("received WriteCoilsRequest")
+				gomodbus.Logger.Sugar().Debugf("received WriteCoilsRequest")
 				s.handleWriteCoilsRequest(bodyBuffer, conn)
 
 			case RequestType_WriteRegisterRequest:
-				gomodbus.Logger.Sugar().Infof("received WriteRegisterRequest")
+				gomodbus.Logger.Sugar().Debugf("received WriteRegisterRequest")
 				s.handleWriteRegisterRequest(bodyBuffer, conn)
 
 			case RequestType_WriteRegistersRequest:
-				gomodbus.Logger.Sugar().Infof("received WriteRegistersRequest")
+				gomodbus.Logger.Sugar().Debugf("received WriteRegistersRequest")
 				s.handleWriteRegistersRequest(bodyBuffer, conn)
 
 			case RequestType_ConnectRequest:
-				gomodbus.Logger.Sugar().Infof("received ConnectRequest")
+				gomodbus.Logger.Sugar().Debugf("received ConnectRequest")
 				s.handleConnectRequest(conn)
 
 			case RequestType_DisconnectRequest:
-				gomodbus.Logger.Sugar().Infof("received DisconnectRequest")
+				gomodbus.Logger.Sugar().Debugf("received DisconnectRequest")
 				s.handleDisconnectRequest(conn)
 			}
 		}
@@ -304,7 +304,7 @@ func (s *Socket) handleNewTCPServerRequest(bodyBuffer []byte, conn net.Conn) {
 		request.CaFile,
 	)
 
-	gomodbus.Logger.Sugar().Infof("created new TCP server on %s:%d", request.Host, request.Port)
+	gomodbus.Logger.Sugar().Debugf("created new TCP server on %s:%d", request.Host, request.Port)
 
 	s.sendACK(conn)
 }
@@ -329,7 +329,7 @@ func (s *Socket) handleNewSerialServerRequest(bodyBuffer []byte, conn net.Conn) 
 		request.WordOrder,
 	)
 
-	gomodbus.Logger.Sugar().Infof("created new Serial server on %s", request.Port)
+	gomodbus.Logger.Sugar().Debugf("created new Serial server on %s", request.Port)
 
 	s.sendACK(conn)
 }
