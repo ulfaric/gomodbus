@@ -505,7 +505,17 @@ func (s *Socket) handleDeleteInputRegistersRequest(bodyBuffer []byte, conn net.C
 
 // handleStartServerRequest processes a request to start the server.
 func (s *Socket) handleStartServerRequest(conn net.Conn) {
-	go s.server.Start()
+	errChan := make(chan error, 1)
+	go func() {
+		errChan <- s.server.Start()
+	}()
+
+	err := <-errChan
+	if err != nil {
+		gomodbus.Logger.Sugar().Errorf("failed to start ModBus server: %v", err)
+		s.sendNACK(conn, err)
+		return
+	}
 	gomodbus.Logger.Sugar().Infof("started ModBus server")
 	s.sendACK(conn)
 }
