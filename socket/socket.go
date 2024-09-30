@@ -52,7 +52,7 @@ func (s *Socket) Start() {
 	for {
 		select {
 		case <-s.ctx.Done():
-			gomodbus.Logger.Info("Shutting down server...")
+			gomodbus.Logger.Info("Shutting down ModBus TCP socket...")
 			return
 		default:
 			conn, err := s.listener.Accept()
