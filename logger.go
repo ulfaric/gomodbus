@@ -48,7 +48,7 @@ func (c *CustomColorEncoder) EncodeEntry(entry zapcore.Entry, fields []zapcore.F
 	coloredBuf := buffer.NewPool().Get()
 	coloredBuf.AppendString(color)
 	coloredBuf.AppendString(entry.Level.CapitalString())
-	coloredBuf.AppendString(strings.Repeat(" ", 8-len(entry.Level.CapitalString())))
+	coloredBuf.AppendString(strings.Repeat(" ", 10-len(entry.Level.CapitalString())))
 	coloredBuf.AppendString(entry.Message)
 	coloredBuf.AppendString(colorReset)
 	coloredBuf.AppendString("\n")
