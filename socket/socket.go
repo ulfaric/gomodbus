@@ -3,6 +3,7 @@ package socket
 import (
 	"context"
 	"encoding/binary"
+	"errors"
 	"io"
 	"net"
 	"sync"
@@ -336,6 +337,12 @@ func (s *Socket) handleNewSerialServerRequest(bodyBuffer []byte, conn net.Conn) 
 
 // handleNewSlaveRequest processes a request to add a new slave.
 func (s *Socket) handleNewSlaveRequest(bodyBuffer []byte, conn net.Conn) {
+	if s.server == nil {
+		gomodbus.Logger.Sugar().Errorf("server not initialized")
+		s.sendNACK(conn, errors.New("server not initialized"))
+		return
+	}
+
 	var request SlaveRequest
 	err := proto.Unmarshal(bodyBuffer, &request)
 	if err != nil {
@@ -352,6 +359,12 @@ func (s *Socket) handleNewSlaveRequest(bodyBuffer []byte, conn net.Conn) {
 
 // handleRemoveSlaveRequest processes a request to remove a slave.
 func (s *Socket) handleRemoveSlaveRequest(bodyBuffer []byte, conn net.Conn) {
+	if s.server == nil {
+		gomodbus.Logger.Sugar().Errorf("server not initialized")
+		s.sendNACK(conn, errors.New("server not initialized"))
+		return
+	}
+
 	var request SlaveRequest
 	err := proto.Unmarshal(bodyBuffer, &request)
 	if err != nil {
@@ -368,6 +381,12 @@ func (s *Socket) handleRemoveSlaveRequest(bodyBuffer []byte, conn net.Conn) {
 
 // handleAddCoilsRequest processes a request to add coils to a slave.
 func (s *Socket) handleAddCoilsRequest(bodyBuffer []byte, conn net.Conn) {
+	if s.server == nil {
+		gomodbus.Logger.Sugar().Errorf("server not initialized")
+		s.sendNACK(conn, errors.New("server not initialized"))
+		return
+	}
+
 	var request CoilsRequest
 	err := proto.Unmarshal(bodyBuffer, &request)
 	if err != nil {
@@ -376,7 +395,12 @@ func (s *Socket) handleAddCoilsRequest(bodyBuffer []byte, conn net.Conn) {
 		return
 	}
 
-	server.AddCoils(s.server, byte(request.SlaveRequest.UnitId), uint16(request.Address), request.Values)
+	err = server.AddCoils(s.server, byte(request.SlaveRequest.UnitId), uint16(request.Address), request.Values)
+	if err != nil {
+		gomodbus.Logger.Sugar().Errorf("failed to add coils: %v", err)
+		s.sendNACK(conn, err)
+		return
+	}
 	gomodbus.Logger.Sugar().Infof("added %d coils to slave with unit ID %d", len(request.Values), request.SlaveRequest.UnitId)
 
 	s.sendACK(conn)
@@ -395,7 +419,12 @@ func (s *Socket) handleDeleteCoilsRequest(bodyBuffer []byte, conn net.Conn) {
 	for i, address := range request.Addresses {
 		addresses[i] = uint16(address)
 	}
-	server.DeleteCoils(s.server, byte(request.SlaveRequest.UnitId), addresses)
+	err = server.DeleteCoils(s.server, byte(request.SlaveRequest.UnitId), addresses)
+	if err != nil {
+		gomodbus.Logger.Sugar().Errorf("failed to delete coils: %v", err)
+		s.sendNACK(conn, err)
+		return
+	}
 	gomodbus.Logger.Sugar().Infof("deleted %d coils from slave with unit ID %d", len(request.Addresses), request.SlaveRequest.UnitId)
 
 	s.sendACK(conn)
@@ -410,7 +439,12 @@ func (s *Socket) handleAddDiscreteInputsRequest(bodyBuffer []byte, conn net.Conn
 		s.sendNACK(conn, err)
 		return
 	}
-	server.AddDiscreteInputs(s.server, byte(request.SlaveRequest.UnitId), uint16(request.Address), request.Values)
+	err = server.AddDiscreteInputs(s.server, byte(request.SlaveRequest.UnitId), uint16(request.Address), request.Values)
+	if err != nil {
+		gomodbus.Logger.Sugar().Errorf("failed to add discrete inputs: %v", err)
+		s.sendNACK(conn, err)
+		return
+	}
 	gomodbus.Logger.Sugar().Infof("added %d discrete inputs to slave with unit ID %d", len(request.Values), request.SlaveRequest.UnitId)
 
 	s.sendACK(conn)
@@ -429,7 +463,12 @@ func (s *Socket) handleDeleteDiscreteInputsRequest(bodyBuffer []byte, conn net.C
 	for i, address := range request.Addresses {
 		addresses[i] = uint16(address)
 	}
-	server.DeleteDiscreteInputs(s.server, byte(request.SlaveRequest.UnitId), addresses)
+	err = server.DeleteDiscreteInputs(s.server, byte(request.SlaveRequest.UnitId), addresses)
+	if err != nil {
+		gomodbus.Logger.Sugar().Errorf("failed to delete discrete inputs: %v", err)
+		s.sendNACK(conn, err)
+		return
+	}
 	gomodbus.Logger.Sugar().Infof("deleted %d discrete inputs from slave with unit ID %d", len(request.Addresses), request.SlaveRequest.UnitId)
 
 	s.sendACK(conn)
@@ -444,7 +483,12 @@ func (s *Socket) handleAddHoldingRegistersRequest(bodyBuffer []byte, conn net.Co
 		s.sendNACK(conn, err)
 		return
 	}
-	server.AddHoldingRegisters(s.server, byte(request.SlaveRequest.UnitId), uint16(request.Address), request.Values)
+	err = server.AddHoldingRegisters(s.server, byte(request.SlaveRequest.UnitId), uint16(request.Address), request.Values)
+	if err != nil {
+		gomodbus.Logger.Sugar().Errorf("failed to add holding registers: %v", err)
+		s.sendNACK(conn, err)
+		return
+	}
 	gomodbus.Logger.Sugar().Infof("added %d holding registers to slave with unit ID %d", len(request.Values), request.SlaveRequest.UnitId)
 
 	s.sendACK(conn)
@@ -463,7 +507,12 @@ func (s *Socket) handleDeleteHoldingRegistersRequest(bodyBuffer []byte, conn net
 	for i, address := range request.Addresses {
 		addresses[i] = uint16(address)
 	}
-	server.DeleteHoldingRegisters(s.server, byte(request.SlaveRequest.UnitId), addresses)
+	err = server.DeleteHoldingRegisters(s.server, byte(request.SlaveRequest.UnitId), addresses)
+	if err != nil {
+		gomodbus.Logger.Sugar().Errorf("failed to delete holding registers: %v", err)
+		s.sendNACK(conn, err)
+		return
+	}
 	gomodbus.Logger.Sugar().Infof("deleted %d holding registers from slave with unit ID %d", len(request.Addresses), request.SlaveRequest.UnitId)
 
 	s.sendACK(conn)
@@ -478,7 +527,12 @@ func (s *Socket) handleAddInputRegistersRequest(bodyBuffer []byte, conn net.Conn
 		s.sendNACK(conn, err)
 		return
 	}
-	server.AddInputRegisters(s.server, byte(request.SlaveRequest.UnitId), uint16(request.Address), request.Values)
+	err = server.AddInputRegisters(s.server, byte(request.SlaveRequest.UnitId), uint16(request.Address), request.Values)
+	if err != nil {
+		gomodbus.Logger.Sugar().Errorf("failed to add input registers: %v", err)
+		s.sendNACK(conn, err)
+		return
+	}
 	gomodbus.Logger.Sugar().Infof("added %d input registers to slave with unit ID %d", len(request.Values), request.SlaveRequest.UnitId)
 
 	s.sendACK(conn)
@@ -497,7 +551,12 @@ func (s *Socket) handleDeleteInputRegistersRequest(bodyBuffer []byte, conn net.C
 	for i, address := range request.Addresses {
 		addresses[i] = uint16(address)
 	}
-	server.DeleteInputRegisters(s.server, byte(request.SlaveRequest.UnitId), addresses)
+	err = server.DeleteInputRegisters(s.server, byte(request.SlaveRequest.UnitId), addresses)
+	if err != nil {
+		gomodbus.Logger.Sugar().Errorf("failed to delete input registers: %v", err)
+		s.sendNACK(conn, err)
+		return
+	}
 	gomodbus.Logger.Sugar().Infof("deleted %d input registers from slave with unit ID %d", len(request.Addresses), request.SlaveRequest.UnitId)
 
 	s.sendACK(conn)
@@ -507,6 +566,7 @@ func (s *Socket) handleDeleteInputRegistersRequest(bodyBuffer []byte, conn net.C
 func (s *Socket) handleStartServerRequest(conn net.Conn) {
 	err := s.server.Start()
 	if err != nil {
+		gomodbus.Logger.Sugar().Errorf("failed to start server: %v", err)
 		s.sendNACK(conn, err)
 		return
 	}
@@ -516,7 +576,12 @@ func (s *Socket) handleStartServerRequest(conn net.Conn) {
 
 // handleStopServerRequest processes a request to stop the server.
 func (s *Socket) handleStopServerRequest(conn net.Conn) {
-	s.server.Stop()
+	err := s.server.Stop()
+	if err != nil {
+		gomodbus.Logger.Sugar().Errorf("failed to stop server: %v", err)
+		s.sendNACK(conn, err)
+		return
+	}
 	gomodbus.Logger.Sugar().Infof("stopped ModBus server")
 	s.sendACK(conn)
 }

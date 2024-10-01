@@ -2,7 +2,7 @@ package server
 
 import (
 	"bytes"
-
+	"errors"
 	"github.com/ulfaric/gomodbus"
 	"github.com/ulfaric/gomodbus/pdu"
 )
@@ -15,79 +15,87 @@ type Server interface {
 	RemoveSlave(unitID byte)
 }
 
-func AddCoils(server Server, unitID byte, address uint16, values []bool) {
+func AddCoils(server Server, unitID byte, address uint16, values []bool) error {
 	slave, err := server.GetSlave(unitID)
 	if err != nil {
 		gomodbus.Logger.Sugar().Errorf("slave not found: %v", err)
-		return
+		return errors.New("slave not found")
 	}
 	slave.AddCoils(address, values)
+	return nil
 }
 
-func DeleteCoils(server Server, unitID byte, addresses []uint16) {
+func DeleteCoils(server Server, unitID byte, addresses []uint16) error {
 	slave, err := server.GetSlave(unitID)
 	if err != nil {
 		gomodbus.Logger.Sugar().Errorf("slave not found: %v", err)
-		return
+		return errors.New("slave not found")
 	}
 	slave.DeleteCoils(addresses)
+	return nil
 }
 
 
-func AddDiscreteInputs(server Server, unitID byte, address uint16, values []bool) {
+func AddDiscreteInputs(server Server, unitID byte, address uint16, values []bool) error {
 	slave, err := server.GetSlave(unitID)
 	if err != nil {
 		gomodbus.Logger.Sugar().Errorf("slave not found: %v", err)
-		return
+		return errors.New("slave not found")
 	}
 	slave.AddDiscreteInputs(address, values)
+	return nil
 }
 
-func DeleteDiscreteInputs(server Server, unitID byte, addresses []uint16) {
+func DeleteDiscreteInputs(server Server, unitID byte, addresses []uint16) error {
 	slave, err := server.GetSlave(unitID)
 	if err != nil {
 		gomodbus.Logger.Sugar().Errorf("slave not found: %v", err)
-		return
+		return errors.New("slave not found")
 	}
 	slave.DeleteDiscreteInputs(addresses)
+	return nil
 }
 
 
-func AddHoldingRegisters(server Server, unitID byte, address uint16, values [][]byte) {
+func AddHoldingRegisters(server Server, unitID byte, address uint16, values [][]byte) error {
 	slave, err := server.GetSlave(unitID)
 	if err != nil {
 		gomodbus.Logger.Sugar().Errorf("slave not found: %v", err)
-		return
+		return errors.New("slave not found")
 	}
 	slave.AddHoldingRegisters(address, values)
+	return nil
 }
 
-func DeleteHoldingRegisters(server Server, unitID byte, addresses []uint16) {
+func DeleteHoldingRegisters(server Server, unitID byte, addresses []uint16) error {
 	slave, err := server.GetSlave(unitID)
 	if err != nil {
 		gomodbus.Logger.Sugar().Errorf("slave not found: %v", err)
-		return
+		return errors.New("slave not found")
 	}
 	slave.DeleteHoldingRegisters(addresses)
+	return nil
 }
 
 
-func AddInputRegisters(server Server, unitID byte, address uint16, values [][]byte) {
+func AddInputRegisters(server Server, unitID byte, address uint16, values [][]byte) error {
 	slave, err := server.GetSlave(unitID)
 	if err != nil {
 		gomodbus.Logger.Sugar().Errorf("slave not found: %v", err)
-		return
+		return errors.New("slave not found")
 	}
 	slave.AddInputRegisters(address, values)
+	return nil
 }
 
-func DeleteInputRegisters(server Server, unitID byte, addresses []uint16) {
+func DeleteInputRegisters(server Server, unitID byte, addresses []uint16) error {
 	slave, err := server.GetSlave(unitID)
 	if err != nil {
 		gomodbus.Logger.Sugar().Errorf("slave not found: %v", err)
-		return
+		return errors.New("slave not found")
 	}
 	slave.DeleteInputRegisters(addresses)
+	return nil
 }
 
 
