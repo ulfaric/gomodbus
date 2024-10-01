@@ -122,7 +122,6 @@ func (s *TCPServer) Start() error {
 		}
 		gomodbus.Logger.Sugar().Infof("Modbus server started on %s", addr)
 	}
-	defer listener.Close()
 
 	s.wg.Add(1)
 	go s.acceptConnection(listener)
@@ -137,6 +136,7 @@ func (s *TCPServer) Stop() error {
 
 func (s *TCPServer) acceptConnection(listener net.Listener) {
 	defer s.wg.Done()
+	defer listener.Close()
 	gomodbus.Logger.Info("Waiting for connections...")
 	for {
 		select {
@@ -144,9 +144,15 @@ func (s *TCPServer) acceptConnection(listener net.Listener) {
 			gomodbus.Logger.Info("Shutting down server...")
 			return
 		default:
-			conn, err := listener.Accept()
+			tcpListener, ok := listener.(*net.TCPListener)
+			if !ok {
+				gomodbus.Logger.Sugar().Errorf("listener is not a TCP listener")
+				continue
+			}
+			tcpListener.SetDeadline(time.Now().Add(time.Second * 1))
+			conn, err := tcpListener.Accept()
 			if err != nil {
-				if opErr, ok := err.(*net.OpError); ok && opErr.Timeout() {
+				if opErr, ok := err.(*net.OpError); ok && (opErr.Timeout() || opErr.Err.Error() == "use of closed network connection") {
 					continue
 				}
 				gomodbus.Logger.Sugar().Errorf("failed to accept connection: %v", err)

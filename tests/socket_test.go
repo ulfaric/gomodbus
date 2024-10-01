@@ -121,7 +121,7 @@ func TestSocket(t *testing.T) {
 
 	// Test StopServerRequest
 	testStopServerRequest(t, conn)
-	time.Sleep(1 * time.Second)
+	time.Sleep(2 * time.Second)
 }
 
 

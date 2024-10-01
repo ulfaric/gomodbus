@@ -47,7 +47,7 @@ func (c *CustomColorEncoder) EncodeEntry(entry zapcore.Entry, fields []zapcore.F
 	coloredBuf := buffer.NewPool().Get()
 	coloredBuf.AppendString(color)
 	coloredBuf.AppendString(entry.Level.CapitalString()) // Uppercase log level
-	coloredBuf.AppendString("    ")                     // Four spaces
+	coloredBuf.AppendString("\t")                     // Four spaces
 	coloredBuf.AppendString(entry.Message)              // Log message
 	coloredBuf.AppendString(colorReset)
 	coloredBuf.AppendString("\n")                       // Newline
