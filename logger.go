@@ -2,6 +2,7 @@ package gomodbus
 
 import (
 	"os"
+	"strings"
 
 	"go.uber.org/zap"
 	"go.uber.org/zap/buffer"
@@ -46,12 +47,11 @@ func (c *CustomColorEncoder) EncodeEntry(entry zapcore.Entry, fields []zapcore.F
 	// Create a new buffer for the custom format
 	coloredBuf := buffer.NewPool().Get()
 	coloredBuf.AppendString(color)
-	coloredBuf.AppendString(entry.Level.CapitalString()) // Uppercase log level
-	coloredBuf.AppendString("\t")                     // Four spaces
-	coloredBuf.AppendString(entry.Message)              // Log message
+	coloredBuf.AppendString(entry.Level.CapitalString())
+	coloredBuf.AppendString(strings.Repeat(" ", 8-len(entry.Level.CapitalString())))
+	coloredBuf.AppendString(entry.Message)
 	coloredBuf.AppendString(colorReset)
-	coloredBuf.AppendString("\n")                       // Newline
-
+	coloredBuf.AppendString("\n")
 	return coloredBuf, nil
 }
 
