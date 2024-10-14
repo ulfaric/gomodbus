@@ -2,6 +2,7 @@ package tests
 
 import (
 	"testing"
+	"time"
 
 	c "github.com/ulfaric/gomodbus/client"
 	s "github.com/ulfaric/gomodbus/server"
@@ -25,6 +26,8 @@ func TestTCPServer_Coils(t *testing.T) {
 	server := createTestTCPServer()
 	go server.Start()
 	defer server.Stop()
+
+	time.Sleep(1 * time.Second)
 
 	client := c.NewTCPClient("127.0.0.1", 1502, false, "", "", "")
 	err := client.Connect()
@@ -58,6 +61,8 @@ func TestTCPServer_ReadHoldingRegisters(t *testing.T) {
 	server := createTestTCPServer()
 	go server.Start()
 	defer server.Stop()
+
+	time.Sleep(1 * time.Second)
 
 	client := c.NewTCPClient("127.0.0.1", 1502, false, "", "", "")
 	err := client.Connect()
