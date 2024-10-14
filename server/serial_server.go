@@ -17,8 +17,6 @@ type SerialServer struct {
 	DataBits  byte
 	Parity    byte
 	StopBits  byte
-	ByteOrder string
-	WordOrder string
 	Slaves    map[byte]*Slave
 
 	mu     sync.Mutex
@@ -27,7 +25,8 @@ type SerialServer struct {
 	wg     sync.WaitGroup
 }
 
-func NewSerialServer(port string, baudRate int, dataBits byte, parity byte, stopBits byte, byteOrder, wordOrder string) Server {
+// NewSerialServer creates a new serial server.
+func NewSerialServer(port string, baudRate int, dataBits byte, parity byte, stopBits byte) Server {
 	ctx, cancel := context.WithCancel(context.Background())
 	return &SerialServer{
 		Port:      port,
@@ -35,8 +34,6 @@ func NewSerialServer(port string, baudRate int, dataBits byte, parity byte, stop
 		DataBits:  dataBits,
 		Parity:    parity,
 		StopBits:  stopBits,
-		ByteOrder: byteOrder,
-		WordOrder: wordOrder,
 		Slaves:    make(map[byte]*Slave),
 
 		ctx:    ctx,
@@ -44,6 +41,7 @@ func NewSerialServer(port string, baudRate int, dataBits byte, parity byte, stop
 	}
 }
 
+// AddSlave adds a new slave to the server.
 func (s *SerialServer) AddSlave(unitID byte) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -55,6 +53,7 @@ func (s *SerialServer) AddSlave(unitID byte) {
 	}
 }
 
+// GetSlave gets a slave by unit ID.
 func (s *SerialServer) GetSlave(unitID byte) (*Slave, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -65,12 +64,14 @@ func (s *SerialServer) GetSlave(unitID byte) (*Slave, error) {
 	return slave, nil
 }
 
+// RemoveSlave removes a slave by unit ID.
 func (s *SerialServer) RemoveSlave(unitID byte) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	delete(s.Slaves, unitID)
 }
 
+// Start starts the serial server.
 func (s *SerialServer) Start() error {
 	config := &serial.Config{
 		Name:     s.Port,
@@ -93,12 +94,14 @@ func (s *SerialServer) Start() error {
 	return nil
 }
 
+// Stop stops the serial server.
 func (s *SerialServer) Stop() error {
 	s.cancel()
 	s.wg.Wait()
 	return nil
 }
 
+// handleRequest handles the request from the serial port.
 func (s *SerialServer) handleRequest(port *serial.Port) error {
 	defer s.wg.Done()
 	gomodbus.Logger.Sugar().Info("Waiting for requests...")
@@ -106,6 +109,7 @@ func (s *SerialServer) handleRequest(port *serial.Port) error {
 	for {
 		select {
 		case <-s.ctx.Done():
+			gomodbus.Logger.Sugar().Info("Shutting down server...")
 			return nil
 		default:
 			n, err := port.Read(buffer)

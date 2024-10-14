@@ -18,8 +18,6 @@ import (
 type TCPServer struct {
 	Host      string
 	Port      int32
-	ByteOrder string
-	WordOrder string
 	Slaves    map[byte]*Slave
 	mu        sync.Mutex
 
@@ -33,7 +31,8 @@ type TCPServer struct {
 	wg     sync.WaitGroup
 }
 
-func NewTCPServer(host string, port int32, useTLS bool, byteOrder, wordOrder, certFile, keyFile, caFile string) Server {
+// NewTCPServer creates a new TCP server.
+func NewTCPServer(host string, port int32, useTLS bool, certFile, keyFile, caFile string) Server {
 	ctx, cancel := context.WithCancel(context.Background())
 	return &TCPServer{
 		Host:     host,
@@ -48,6 +47,7 @@ func NewTCPServer(host string, port int32, useTLS bool, byteOrder, wordOrder, ce
 	}
 }
 
+// AddSlave adds a new slave to the server.
 func (s *TCPServer) AddSlave(unitID byte) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -59,6 +59,7 @@ func (s *TCPServer) AddSlave(unitID byte) {
 	}
 }
 
+// GetSlave gets a slave by unit ID.
 func (s *TCPServer) GetSlave(unitID byte) (*Slave, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -69,12 +70,14 @@ func (s *TCPServer) GetSlave(unitID byte) (*Slave, error) {
 	return slave, nil
 }
 
+// RemoveSlave removes a slave by unit ID.
 func (s *TCPServer) RemoveSlave(unitID byte) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	delete(s.Slaves, unitID)
 }
 
+// Start starts the TCP server.
 func (s *TCPServer) Start() error {
 	addr := fmt.Sprintf("%s:%d", s.Host, s.Port)
 	var listener net.Listener
@@ -128,12 +131,14 @@ func (s *TCPServer) Start() error {
 	return nil
 }
 
+// Stop stops the TCP server.
 func (s *TCPServer) Stop() error {
 	s.cancel()
 	s.wg.Wait()
 	return nil
 }
 
+// acceptConnection accepts connections from the TCP server.
 func (s *TCPServer) acceptConnection(listener net.Listener) {
 	defer s.wg.Done()
 	defer listener.Close()
@@ -165,6 +170,7 @@ func (s *TCPServer) acceptConnection(listener net.Listener) {
 	}
 }
 
+// handleConnection handles the connection from the TCP server.
 func (s *TCPServer) handleConnection(conn net.Conn) {
 	defer conn.Close()
 	defer s.wg.Done()

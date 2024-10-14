@@ -2,7 +2,6 @@ package client
 
 import (
 	"bytes"
-	"encoding/binary"
 	"fmt"
 
 	"github.com/ulfaric/gomodbus"
@@ -124,7 +123,7 @@ func ReadDiscreteInputs(c Client, unitID byte, address uint16, quantity uint16) 
 }
 
 // ReadHoldingRegisters reads the values of holding registers from a Modbus server
-func ReadHoldingRegisters(c Client, unitID byte, address uint16, quantity uint16) ([]uint16, error) {
+func ReadHoldingRegisters(c Client, unitID byte, address uint16, quantity uint16) ([][]byte, error) {
 	// Create a new PDU for reading holding registers
 	request := pdu.NewPDUReadHoldingRegisters(address, quantity)
 	requestBytes := request.ToBytes()
@@ -165,17 +164,17 @@ func ReadHoldingRegisters(c Client, unitID byte, address uint16, quantity uint16
 		return nil, fmt.Errorf("invalid data length, expected %d, got %d", quantity*2, len(response.Data))
 	}
 
-	// Parse the register values from the response PDU
-	registers := make([]uint16, quantity)
-	for i := uint16(0); i < quantity; i++ {
-		registers[i] = binary.BigEndian.Uint16(response.Data[i*2 : (i+1)*2])
-	}
+    // Parse the register values from the response PDU
+    registers := make([][]byte, quantity)
+    for i := uint16(0); i < quantity; i++ {
+        registers[i] = response.Data[i*2 : (i+1)*2]
+    }
 
-	return registers, nil
+    return registers, nil
 }
 
 // ReadInputRegisters reads the values of input registers from a Modbus server
-func ReadInputRegisters(c Client, unitID byte, address uint16, quantity uint16) ([]uint16, error) {
+func ReadInputRegisters(c Client, unitID byte, address uint16, quantity uint16) ([][]byte, error) {
 	// Create a new PDU for reading input registers
 	request := pdu.NewPDUReadInputRegisters(address, quantity)
 	requestBytes := request.ToBytes()
@@ -217,9 +216,9 @@ func ReadInputRegisters(c Client, unitID byte, address uint16, quantity uint16) 
 	}
 
 	// Parse the register values from the response PDU
-	registers := make([]uint16, quantity)
+	registers := make([][]byte, quantity)
 	for i := uint16(0); i < quantity; i++ {
-		registers[i] = binary.BigEndian.Uint16(response.Data[i*2 : (i+1)*2])
+		registers[i] = response.Data[i*2 : (i+1)*2]
 	}
 
 	return registers, nil

@@ -1,6 +1,7 @@
 package tests
 
 import (
+	"bytes"
 	"testing"
 	"time"
 
@@ -9,7 +10,7 @@ import (
 )
 
 func createTestTCPServer() s.Server {
-	server := s.NewTCPServer("127.0.0.1", 1502, false, "big", "big", "", "", "")
+	server := s.NewTCPServer("127.0.0.1", 1502, false, "", "", "")
 	server.AddSlave(1)
 	// Initialize coils
 	slave, _ := server.GetSlave(1)
@@ -83,10 +84,13 @@ func TestTCPServer_ReadHoldingRegisters(t *testing.T) {
 		t.Fatalf("Failed to read holding registers: %v", err)
 	}
 
-	expected := []uint16{0x1234, 0x5678}
-	for i, reg := range registers {
-		if reg != expected[i] {
-			t.Errorf("Register %d: expected 0x%04X, got 0x%04X", i, expected[i], reg)
+	expected := [][]byte{
+		{0x12, 0x34},
+		{0x56, 0x78},
+	}
+	for i, register := range registers {
+		if !bytes.Equal(register, expected[i]) {
+			t.Errorf("Register %d: expected %v, got %v", i, expected[i], register)
 		}
 	}
 }

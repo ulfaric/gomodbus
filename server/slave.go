@@ -19,6 +19,7 @@ func (s *Slave) AddCoils(address uint16, values []bool) {
 	}
 }
 
+// SetCoils sets the coils to the slave.
 func (s *Slave) SetCoils(address uint16, values []bool) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -29,6 +30,7 @@ func (s *Slave) SetCoils(address uint16, values []bool) {
 	}
 }
 
+// DeleteCoils deletes the coils from the slave.
 func (s *Slave) DeleteCoils(addresses []uint16) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -37,6 +39,7 @@ func (s *Slave) DeleteCoils(addresses []uint16) {
 	}
 }
 
+// AddDiscreteInputs adds a new discrete input to the slave.
 func (s *Slave) AddDiscreteInputs(address uint16, values []bool) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -45,6 +48,7 @@ func (s *Slave) AddDiscreteInputs(address uint16, values []bool) {
 	}
 }
 
+// SetDiscreteInputs sets the discrete inputs to the slave.
 func (s *Slave) SetDiscreteInputs(address uint16, values []bool) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -55,6 +59,7 @@ func (s *Slave) SetDiscreteInputs(address uint16, values []bool) {
 	}
 }
 
+// DeleteDiscreteInputs deletes the discrete inputs from the slave.
 func (s *Slave) DeleteDiscreteInputs(addresses []uint16) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -63,6 +68,7 @@ func (s *Slave) DeleteDiscreteInputs(addresses []uint16) {
 	}
 }
 
+// AddHoldingRegisters adds a new holding register to the slave.
 func (s *Slave) AddHoldingRegisters(address uint16, values [][]byte) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -71,6 +77,7 @@ func (s *Slave) AddHoldingRegisters(address uint16, values [][]byte) {
 	}
 }
 
+// SetHoldingRegisters sets the holding registers to the slave.
 func (s *Slave) SetHoldingRegisters(address uint16, values [][]byte) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -81,6 +88,7 @@ func (s *Slave) SetHoldingRegisters(address uint16, values [][]byte) {
 	}
 }
 
+// DeleteHoldingRegisters deletes the holding registers from the slave.
 func (s *Slave) DeleteHoldingRegisters(addresses []uint16) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -89,6 +97,7 @@ func (s *Slave) DeleteHoldingRegisters(addresses []uint16) {
 	}
 }
 
+// AddInputRegisters adds a new input register to the slave.
 func (s *Slave) AddInputRegisters(address uint16, values [][]byte) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -97,6 +106,7 @@ func (s *Slave) AddInputRegisters(address uint16, values [][]byte) {
 	}
 }
 
+// SetInputRegisters sets the input registers to the slave.
 func (s *Slave) SetInputRegisters(address uint16, values [][]byte) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -107,6 +117,7 @@ func (s *Slave) SetInputRegisters(address uint16, values [][]byte) {
 	}
 }
 
+// DeleteInputRegisters deletes the input registers from the slave.
 func (s *Slave) DeleteInputRegisters(addresses []uint16) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
