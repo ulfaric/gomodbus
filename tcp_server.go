@@ -14,8 +14,6 @@ import (
 type TCPServer struct {
 	Host      string
 	Port      int32
-	ByteOrder string
-	WordOrder string
 	Slaves    map[byte]*Slave
 	mu        sync.Mutex
 
@@ -29,7 +27,7 @@ type TCPServer struct {
 	wg     sync.WaitGroup
 }
 
-func NewTCPServer(host string, port int32, useTLS bool, byteOrder, wordOrder, certFile, keyFile, caFile string) Server {
+func NewTCPServer(host string, port int32, useTLS bool,certFile, keyFile, caFile string) Server {
 	ctx, cancel := context.WithCancel(context.Background())
 	return &TCPServer{
 		Host:     host,

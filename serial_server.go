@@ -14,8 +14,6 @@ type SerialServer struct {
 	DataBits  byte
 	Parity    byte
 	StopBits  byte
-	ByteOrder string
-	WordOrder string
 	Slaves    map[byte]*Slave
 
 	mu     sync.Mutex
@@ -24,7 +22,7 @@ type SerialServer struct {
 	wg     sync.WaitGroup
 }
 
-func NewSerialServer(port string, baudRate int, dataBits byte, parity byte, stopBits byte, byteOrder, wordOrder string) Server {
+func NewSerialServer(port string, baudRate int, dataBits byte, parity byte, stopBits byte) Server {
 	ctx, cancel := context.WithCancel(context.Background())
 	return &SerialServer{
 		Port:      port,
@@ -32,8 +30,6 @@ func NewSerialServer(port string, baudRate int, dataBits byte, parity byte, stop
 		DataBits:  dataBits,
 		Parity:    parity,
 		StopBits:  stopBits,
-		ByteOrder: byteOrder,
-		WordOrder: wordOrder,
 		Slaves:    make(map[byte]*Slave),
 
 		ctx:    ctx,
