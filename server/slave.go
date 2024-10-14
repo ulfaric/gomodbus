@@ -10,11 +10,22 @@ type Slave struct {
 	mu               sync.Mutex
 }
 
+// AddCoils adds a new coil to the slave.
 func (s *Slave) AddCoils(address uint16, values []bool) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	for i, value := range values {
 		s.Coils[address+uint16(i)] = value
+	}
+}
+
+func (s *Slave) SetCoils(address uint16, values []bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for i, value := range values {
+		if _, ok := s.Coils[address+uint16(i)]; ok {
+			s.Coils[address+uint16(i)] = value
+		}
 	}
 }
 
@@ -34,6 +45,16 @@ func (s *Slave) AddDiscreteInputs(address uint16, values []bool) {
 	}
 }
 
+func (s *Slave) SetDiscreteInputs(address uint16, values []bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for i, value := range values {
+		if _, ok := s.DiscreteInputs[address+uint16(i)]; ok {
+			s.DiscreteInputs[address+uint16(i)] = value
+		}
+	}
+}
+
 func (s *Slave) DeleteDiscreteInputs(addresses []uint16) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -50,6 +71,16 @@ func (s *Slave) AddHoldingRegisters(address uint16, values [][]byte) {
 	}
 }
 
+func (s *Slave) SetHoldingRegisters(address uint16, values [][]byte) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for i, value := range values {
+		if _, ok := s.HoldingRegisters[address+uint16(i)]; ok {
+			s.HoldingRegisters[address+uint16(i)] = value
+		}
+	}
+}
+
 func (s *Slave) DeleteHoldingRegisters(addresses []uint16) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -63,6 +94,16 @@ func (s *Slave) AddInputRegisters(address uint16, values [][]byte) {
 	defer s.mu.Unlock()
 	for i, value := range values {
 		s.InputRegisters[address+uint16(i)] = value
+	}
+}
+
+func (s *Slave) SetInputRegisters(address uint16, values [][]byte) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for i, value := range values {
+		if _, ok := s.InputRegisters[address+uint16(i)]; ok {
+			s.InputRegisters[address+uint16(i)] = value
+		}
 	}
 }
 

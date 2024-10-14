@@ -25,6 +25,16 @@ func AddCoils(server Server, unitID byte, address uint16, values []bool) error {
 	return nil
 }
 
+func SetCoils(server Server, unitID byte, address uint16, values []bool) error {
+	slave, err := server.GetSlave(unitID)
+	if err != nil {
+		gomodbus.Logger.Sugar().Errorf("slave not found: %v", err)
+		return errors.New("slave not found")
+	}
+	slave.SetCoils(address, values)
+	return nil
+}
+
 func DeleteCoils(server Server, unitID byte, addresses []uint16) error {
 	slave, err := server.GetSlave(unitID)
 	if err != nil {
@@ -43,6 +53,17 @@ func AddDiscreteInputs(server Server, unitID byte, address uint16, values []bool
 		return errors.New("slave not found")
 	}
 	slave.AddDiscreteInputs(address, values)
+	return nil
+}
+
+func SetDiscreteInputs(server Server, unitID byte, address uint16, values []bool) error {
+
+	slave, err := server.GetSlave(unitID)
+	if err != nil {
+		gomodbus.Logger.Sugar().Errorf("slave not found: %v", err)
+		return errors.New("slave not found")
+	}
+	slave.SetDiscreteInputs(address, values)
 	return nil
 }
 
@@ -67,6 +88,16 @@ func AddHoldingRegisters(server Server, unitID byte, address uint16, values [][]
 	return nil
 }
 
+func SetHoldingRegisters(server Server, unitID byte, address uint16, values [][]byte) error {
+	slave, err := server.GetSlave(unitID)
+	if err != nil {
+		gomodbus.Logger.Sugar().Errorf("slave not found: %v", err)
+		return errors.New("slave not found")
+	}
+	slave.SetHoldingRegisters(address, values)
+	return nil
+}
+
 func DeleteHoldingRegisters(server Server, unitID byte, addresses []uint16) error {
 	slave, err := server.GetSlave(unitID)
 	if err != nil {
@@ -85,6 +116,16 @@ func AddInputRegisters(server Server, unitID byte, address uint16, values [][]by
 		return errors.New("slave not found")
 	}
 	slave.AddInputRegisters(address, values)
+	return nil
+}
+
+func SetInputRegisters(server Server, unitID byte, address uint16, values [][]byte) error {
+	slave, err := server.GetSlave(unitID)
+	if err != nil {
+		gomodbus.Logger.Sugar().Errorf("slave not found: %v", err)
+		return errors.New("slave not found")
+	}
+	slave.SetInputRegisters(address, values)
 	return nil
 }
 

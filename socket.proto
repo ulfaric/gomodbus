@@ -12,28 +12,32 @@ enum RequestType {
     NewSlaveRequest = 4;
     RemoveSlaveRequest = 5;
     AddCoilsRequest = 6;
-    DeleteCoilsRequest = 7;
-    AddDiscreteInputsRequest = 8;
-    DeleteDiscreteInputsRequest = 9;
-    AddHoldingRegistersRequest = 10;
-    DeleteHoldingRegistersRequest = 11;
-    AddInputRegistersRequest = 12;
-    DeleteInputRegistersRequest = 13;
-    StartServerRequest = 14;
-    StopServerRequest = 15;
+    SetCoilsRequest = 7;
+    DeleteCoilsRequest = 8;
+    AddDiscreteInputsRequest = 9;
+    SetDiscreteInputsRequest = 10;
+    DeleteDiscreteInputsRequest = 11;
+    AddHoldingRegistersRequest = 12;
+    SetHoldingRegistersRequest = 13;
+    DeleteHoldingRegistersRequest = 14;
+    AddInputRegistersRequest = 15;
+    SetInputRegistersRequest = 16;
+    DeleteInputRegistersRequest = 17;
+    StartServerRequest = 18;
+    StopServerRequest = 19;
 
-    NewTCPClientRequest = 16;
-    NewSerialClientRequest = 17;
-    ReadCoilsRequest = 18;
-    ReadDiscreteInputsRequest = 19;
-    ReadHoldingRegistersRequest = 20;
-    ReadInputRegistersRequest = 21;
-    WriteCoilRequest = 22;
-    WriteCoilsRequest = 23;
-    WriteRegisterRequest = 24;
-    WriteRegistersRequest = 25;
-    ConnectRequest = 26;
-    DisconnectRequest = 27;
+    NewTCPClientRequest = 20;
+    NewSerialClientRequest = 21;
+    ReadCoilsRequest = 22;
+    ReadDiscreteInputsRequest = 23;
+    ReadHoldingRegistersRequest = 24;
+    ReadInputRegistersRequest = 25;
+    WriteCoilRequest = 26;
+    WriteCoilsRequest = 27;
+    WriteRegisterRequest = 28;
+    WriteRegistersRequest = 29;
+    ConnectRequest = 30;
+    DisconnectRequest = 31;
 }
 
 message Header {
