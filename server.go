@@ -1,10 +1,8 @@
-package server
+package gomodbus
 
 import (
 	"bytes"
 	"errors"
-	"github.com/ulfaric/gomodbus"
-	"github.com/ulfaric/gomodbus/pdu"
 )
 
 type Server interface {
@@ -18,7 +16,7 @@ type Server interface {
 func AddCoils(server Server, unitID byte, address uint16, values []bool) error {
 	slave, err := server.GetSlave(unitID)
 	if err != nil {
-		gomodbus.Logger.Sugar().Errorf("slave not found: %v", err)
+		Logger.Sugar().Errorf("slave not found: %v", err)
 		return errors.New("slave not found")
 	}
 	slave.AddCoils(address, values)
@@ -28,7 +26,7 @@ func AddCoils(server Server, unitID byte, address uint16, values []bool) error {
 func DeleteCoils(server Server, unitID byte, addresses []uint16) error {
 	slave, err := server.GetSlave(unitID)
 	if err != nil {
-		gomodbus.Logger.Sugar().Errorf("slave not found: %v", err)
+		Logger.Sugar().Errorf("slave not found: %v", err)
 		return errors.New("slave not found")
 	}
 	slave.DeleteCoils(addresses)
@@ -39,7 +37,7 @@ func DeleteCoils(server Server, unitID byte, addresses []uint16) error {
 func AddDiscreteInputs(server Server, unitID byte, address uint16, values []bool) error {
 	slave, err := server.GetSlave(unitID)
 	if err != nil {
-		gomodbus.Logger.Sugar().Errorf("slave not found: %v", err)
+		Logger.Sugar().Errorf("slave not found: %v", err)
 		return errors.New("slave not found")
 	}
 	slave.AddDiscreteInputs(address, values)
@@ -49,7 +47,7 @@ func AddDiscreteInputs(server Server, unitID byte, address uint16, values []bool
 func DeleteDiscreteInputs(server Server, unitID byte, addresses []uint16) error {
 	slave, err := server.GetSlave(unitID)
 	if err != nil {
-		gomodbus.Logger.Sugar().Errorf("slave not found: %v", err)
+		Logger.Sugar().Errorf("slave not found: %v", err)
 		return errors.New("slave not found")
 	}
 	slave.DeleteDiscreteInputs(addresses)
@@ -60,7 +58,7 @@ func DeleteDiscreteInputs(server Server, unitID byte, addresses []uint16) error 
 func AddHoldingRegisters(server Server, unitID byte, address uint16, values [][]byte) error {
 	slave, err := server.GetSlave(unitID)
 	if err != nil {
-		gomodbus.Logger.Sugar().Errorf("slave not found: %v", err)
+		Logger.Sugar().Errorf("slave not found: %v", err)
 		return errors.New("slave not found")
 	}
 	slave.AddHoldingRegisters(address, values)
@@ -70,7 +68,7 @@ func AddHoldingRegisters(server Server, unitID byte, address uint16, values [][]
 func DeleteHoldingRegisters(server Server, unitID byte, addresses []uint16) error {
 	slave, err := server.GetSlave(unitID)
 	if err != nil {
-		gomodbus.Logger.Sugar().Errorf("slave not found: %v", err)
+		Logger.Sugar().Errorf("slave not found: %v", err)
 		return errors.New("slave not found")
 	}
 	slave.DeleteHoldingRegisters(addresses)
@@ -81,7 +79,7 @@ func DeleteHoldingRegisters(server Server, unitID byte, addresses []uint16) erro
 func AddInputRegisters(server Server, unitID byte, address uint16, values [][]byte) error {
 	slave, err := server.GetSlave(unitID)
 	if err != nil {
-		gomodbus.Logger.Sugar().Errorf("slave not found: %v", err)
+		Logger.Sugar().Errorf("slave not found: %v", err)
 		return errors.New("slave not found")
 	}
 	slave.AddInputRegisters(address, values)
@@ -91,7 +89,7 @@ func AddInputRegisters(server Server, unitID byte, address uint16, values [][]by
 func DeleteInputRegisters(server Server, unitID byte, addresses []uint16) error {
 	slave, err := server.GetSlave(unitID)
 	if err != nil {
-		gomodbus.Logger.Sugar().Errorf("slave not found: %v", err)
+		Logger.Sugar().Errorf("slave not found: %v", err)
 		return errors.New("slave not found")
 	}
 	slave.DeleteInputRegisters(addresses)
@@ -101,49 +99,49 @@ func DeleteInputRegisters(server Server, unitID byte, addresses []uint16) error 
 
 func processRequest(requestPDUBytes []byte, slave *Slave) ([]byte, error) {
 	switch requestPDUBytes[0] {
-	case gomodbus.ReadCoil:
+	case ReadCoil:
 		responsePDUBytes, err := handleReadCoils(slave, requestPDUBytes)
 		return responsePDUBytes, err
-	case gomodbus.ReadDiscreteInput:
+	case ReadDiscreteInput:
 		responsePDUBytes, err := handleReadDiscreteInputs(slave, requestPDUBytes)
 		return responsePDUBytes, err
-	case gomodbus.ReadHoldingRegister:
+	case ReadHoldingRegister:
 		responsePDUBytes, err := handleReadHoldingRegisters(slave, requestPDUBytes)
 		return responsePDUBytes, err
-	case gomodbus.ReadInputRegister:
+	case ReadInputRegister:
 		responsePDUBytes, err := handleReadInputRegisters(slave, requestPDUBytes)
 		return responsePDUBytes, err
-	case gomodbus.WriteSingleCoil:
+	case WriteSingleCoil:
 		responsePDUBytes, err := handleWriteSingleCoil(slave, requestPDUBytes)
 		return responsePDUBytes, err
-	case gomodbus.WriteMultipleCoils:
+	case WriteMultipleCoils:
 		responsePDUBytes, err := handleWriteMultipleCoils(slave, requestPDUBytes)
 		return responsePDUBytes, err
-	case gomodbus.WriteSingleRegister:
+	case WriteSingleRegister:
 		responsePDUBytes, err := handleWriteSingleRegister(slave, requestPDUBytes)
 		return responsePDUBytes, err
-	case gomodbus.WriteMultipleRegisters:
+	case WriteMultipleRegisters:
 		responsePDUBytes, err := handleWriteMultipleRegisters(slave, requestPDUBytes)
 		return responsePDUBytes, err
 	default:
-		responsePDU := pdu.NewPDUErrorResponse(requestPDUBytes[0], 0x07)
+		responsePDU := NewPDUErrorResponse(requestPDUBytes[0], 0x07)
 		return responsePDU.ToBytes(), nil
 	}
 }
 
 func handleReadCoils(slave *Slave, requestPDUBytes []byte) ([]byte, error) {
 
-	var requestPDU pdu.PDURead
+	var requestPDU PDURead
 	err := requestPDU.FromBytes(requestPDUBytes)
 	if err != nil {
-		gomodbus.Logger.Sugar().Errorf("failed to parse request: %v", err)
-		responsePDU := pdu.NewPDUErrorResponse(gomodbus.ReadCoil, gomodbus.IllegalFunction)
+		Logger.Sugar().Errorf("failed to parse request: %v", err)
+		responsePDU := NewPDUErrorResponse(ReadCoil, IllegalFunction)
 		return responsePDU.ToBytes(), nil
 	}
 
-	if requestPDU.FunctionCode != gomodbus.ReadCoil {
-		gomodbus.Logger.Sugar().Errorf("invalid function code for read coils: %v", err)
-		responsePDU := pdu.NewPDUErrorResponse(gomodbus.ReadCoil, gomodbus.IllegalFunction)
+	if requestPDU.FunctionCode != ReadCoil {
+		Logger.Sugar().Errorf("invalid function code for read coils: %v", err)
+		responsePDU := NewPDUErrorResponse(ReadCoil, IllegalFunction)
 		return responsePDU.ToBytes(), nil
 	}
 
@@ -151,29 +149,29 @@ func handleReadCoils(slave *Slave, requestPDUBytes []byte) ([]byte, error) {
 	for i := requestPDU.StartingAddress; i < requestPDU.StartingAddress+requestPDU.Quantity; i++ {
 		coil, ok := slave.Coils[i]
 		if !ok {
-			gomodbus.Logger.Sugar().Errorf("coil not found: %v", err)
-			responsePDU := pdu.NewPDUErrorResponse(gomodbus.ReadCoil, gomodbus.IllegalDataAddress)
+			Logger.Sugar().Errorf("coil not found: %v", err)
+			responsePDU := NewPDUErrorResponse(ReadCoil, IllegalDataAddress)
 			return responsePDU.ToBytes(), nil
 		}
 		coils[i-requestPDU.StartingAddress] = coil
 	}
 
-	responsePDU := pdu.NewPDUReadCoilsResponse(coils)
+	responsePDU := NewPDUReadCoilsResponse(coils)
 	return responsePDU.ToBytes(), nil
 }
 
 func handleReadDiscreteInputs(slave *Slave, requestPDUBytes []byte) ([]byte, error) {
-	var requestPDU pdu.PDURead
+	var requestPDU PDURead
 	err := requestPDU.FromBytes(requestPDUBytes)
 	if err != nil {
-		gomodbus.Logger.Sugar().Errorf("failed to parse request: %v", err)
-		responsePDU := pdu.NewPDUErrorResponse(gomodbus.ReadDiscreteInput, gomodbus.IllegalFunction)
+		Logger.Sugar().Errorf("failed to parse request: %v", err)
+		responsePDU := NewPDUErrorResponse(ReadDiscreteInput, IllegalFunction)
 		return responsePDU.ToBytes(), nil
 	}
 
-	if requestPDU.FunctionCode != gomodbus.ReadDiscreteInput {
-		gomodbus.Logger.Sugar().Errorf("invalid function code for read discrete inputs: %v", err)
-		responsePDU := pdu.NewPDUErrorResponse(gomodbus.ReadDiscreteInput, gomodbus.IllegalFunction)
+	if requestPDU.FunctionCode != ReadDiscreteInput {
+		Logger.Sugar().Errorf("invalid function code for read discrete inputs: %v", err)
+		responsePDU := NewPDUErrorResponse(ReadDiscreteInput, IllegalFunction)
 		return responsePDU.ToBytes(), nil
 	}
 
@@ -181,30 +179,30 @@ func handleReadDiscreteInputs(slave *Slave, requestPDUBytes []byte) ([]byte, err
 	for i := requestPDU.StartingAddress; i < requestPDU.StartingAddress+requestPDU.Quantity; i++ {
 		input, ok := slave.DiscreteInputs[i]
 		if !ok {
-			gomodbus.Logger.Sugar().Errorf("discrete input not found: %v", err)
-			responsePDU := pdu.NewPDUErrorResponse(gomodbus.ReadDiscreteInput, gomodbus.IllegalDataAddress)
+			Logger.Sugar().Errorf("discrete input not found: %v", err)
+			responsePDU := NewPDUErrorResponse(ReadDiscreteInput, IllegalDataAddress)
 			return responsePDU.ToBytes(), nil
 		}
 		inputs[i-requestPDU.StartingAddress] = input
 	}
 
-	responsePDU := pdu.NewPDUReadDiscreteInputsResponse(inputs)
+	responsePDU := NewPDUReadDiscreteInputsResponse(inputs)
 	return responsePDU.ToBytes(), nil
 }
 
 func handleReadHoldingRegisters(slave *Slave, requestPDUBytes []byte) ([]byte, error) {
 
-	var requestPDU pdu.PDURead
+	var requestPDU PDURead
 	err := requestPDU.FromBytes(requestPDUBytes)
 	if err != nil {
-		gomodbus.Logger.Sugar().Errorf("failed to parse request: %v", err)
-		responsePDU := pdu.NewPDUErrorResponse(gomodbus.ReadHoldingRegister, gomodbus.IllegalFunction)
+		Logger.Sugar().Errorf("failed to parse request: %v", err)
+		responsePDU := NewPDUErrorResponse(ReadHoldingRegister, IllegalFunction)
 		return responsePDU.ToBytes(), nil
 	}
 
-	if requestPDU.FunctionCode != gomodbus.ReadHoldingRegister {
-		gomodbus.Logger.Sugar().Errorf("invalid function code for read holding registers: %v", err)
-		responsePDU := pdu.NewPDUErrorResponse(gomodbus.ReadHoldingRegister, gomodbus.IllegalFunction)
+	if requestPDU.FunctionCode != ReadHoldingRegister {
+		Logger.Sugar().Errorf("invalid function code for read holding registers: %v", err)
+		responsePDU := NewPDUErrorResponse(ReadHoldingRegister, IllegalFunction)
 		return responsePDU.ToBytes(), nil
 	}
 
@@ -212,31 +210,31 @@ func handleReadHoldingRegisters(slave *Slave, requestPDUBytes []byte) ([]byte, e
 	for i := requestPDU.StartingAddress; i < requestPDU.StartingAddress+requestPDU.Quantity; i++ {
 		register, ok := slave.HoldingRegisters[i]
 		if !ok {
-			gomodbus.Logger.Sugar().Errorf("holding register not found: %v", err)
-			responsePDU := pdu.NewPDUErrorResponse(gomodbus.ReadHoldingRegister, gomodbus.IllegalDataAddress)
+			Logger.Sugar().Errorf("holding register not found: %v", err)
+			responsePDU := NewPDUErrorResponse(ReadHoldingRegister, IllegalDataAddress)
 			return responsePDU.ToBytes(), nil
 		}
 		registers.Write(register)
 
 	}
 
-	responsePDU := pdu.NewPDUReadHoldingRegistersResponse(registers.Bytes())
+	responsePDU := NewPDUReadHoldingRegistersResponse(registers.Bytes())
 	return responsePDU.ToBytes(), nil
 }
 
 func handleReadInputRegisters(slave *Slave, requestPDUBytes []byte) ([]byte, error) {
 
-	var requestPDU pdu.PDURead
+	var requestPDU PDURead
 	err := requestPDU.FromBytes(requestPDUBytes)
 	if err != nil {
-		gomodbus.Logger.Sugar().Errorf("failed to parse request: %v", err)
-		responsePDU := pdu.NewPDUErrorResponse(gomodbus.ReadInputRegister, gomodbus.IllegalFunction)
+		Logger.Sugar().Errorf("failed to parse request: %v", err)
+		responsePDU := NewPDUErrorResponse(ReadInputRegister, IllegalFunction)
 		return responsePDU.ToBytes(), nil
 	}
 
-	if requestPDU.FunctionCode != gomodbus.ReadInputRegister {
-		gomodbus.Logger.Sugar().Errorf("invalid function code for read input registers: %v", err)
-		responsePDU := pdu.NewPDUErrorResponse(gomodbus.ReadInputRegister, gomodbus.IllegalFunction)
+	if requestPDU.FunctionCode != ReadInputRegister {
+		Logger.Sugar().Errorf("invalid function code for read input registers: %v", err)
+		responsePDU := NewPDUErrorResponse(ReadInputRegister, IllegalFunction)
 		return responsePDU.ToBytes(), nil
 	}
 
@@ -244,66 +242,66 @@ func handleReadInputRegisters(slave *Slave, requestPDUBytes []byte) ([]byte, err
 	for i := requestPDU.StartingAddress; i < requestPDU.StartingAddress+requestPDU.Quantity; i++ {
 		register, ok := slave.InputRegisters[i]
 		if !ok {
-			gomodbus.Logger.Sugar().Errorf("input register not found: %v", err)
-			responsePDU := pdu.NewPDUErrorResponse(gomodbus.ReadInputRegister, gomodbus.IllegalDataAddress)
+			Logger.Sugar().Errorf("input register not found: %v", err)
+			responsePDU := NewPDUErrorResponse(ReadInputRegister, IllegalDataAddress)
 			return responsePDU.ToBytes(), nil
 		}
 		registers.Write(register)
 	}
 
-	responsePDU := pdu.NewPDUReadInputRegistersResponse(registers.Bytes())
+	responsePDU := NewPDUReadInputRegistersResponse(registers.Bytes())
 	return responsePDU.ToBytes(), nil
 }
 
 func handleWriteSingleCoil(slave *Slave, requestPDUBytes []byte) ([]byte, error) {
 
-	var requestPDU pdu.PDUWriteSingleCoil
+	var requestPDU PDUWriteSingleCoil
 	err := requestPDU.FromBytes(requestPDUBytes)
 	if err != nil {
-		gomodbus.Logger.Sugar().Errorf("failed to parse request: %v", err)
-		responsePDU := pdu.NewPDUErrorResponse(gomodbus.WriteSingleCoil, gomodbus.IllegalFunction)
+		Logger.Sugar().Errorf("failed to parse request: %v", err)
+		responsePDU := NewPDUErrorResponse(WriteSingleCoil, IllegalFunction)
 		return responsePDU.ToBytes(), nil
 	}
 
-	if requestPDU.FunctionCode != gomodbus.WriteSingleCoil {
-		gomodbus.Logger.Sugar().Errorf("invalid function code for write single coil: %v", err)
-		responsePDU := pdu.NewPDUErrorResponse(gomodbus.WriteSingleCoil, gomodbus.IllegalFunction)
+	if requestPDU.FunctionCode != WriteSingleCoil {
+		Logger.Sugar().Errorf("invalid function code for write single coil: %v", err)
+		responsePDU := NewPDUErrorResponse(WriteSingleCoil, IllegalFunction)
 		return responsePDU.ToBytes(), nil
 	}
 
 	_, ok := slave.Coils[requestPDU.Address]
 	if !ok {
-		gomodbus.Logger.Sugar().Errorf("coil not found: %v", err)
-		responsePDU := pdu.NewPDUErrorResponse(gomodbus.WriteSingleCoil, gomodbus.IllegalDataAddress)
+		Logger.Sugar().Errorf("coil not found: %v", err)
+		responsePDU := NewPDUErrorResponse(WriteSingleCoil, IllegalDataAddress)
 		return responsePDU.ToBytes(), nil
 	}
 
 	slave.Coils[requestPDU.Address] = requestPDU.Value == 0xFF00
 
-	responsePDU := pdu.NewWriteSingleCoilResponse(requestPDU.Address, requestPDU.Value == 0xFF00)
+	responsePDU := NewWriteSingleCoilResponse(requestPDU.Address, requestPDU.Value == 0xFF00)
 	return responsePDU.ToBytes(), nil
 }
 
 func handleWriteMultipleCoils(slave *Slave, requestPDUBytes []byte) ([]byte, error) {
 
-	var requestPDU pdu.PDUWriteMultipleCoils
+	var requestPDU PDUWriteMultipleCoils
 	err := requestPDU.FromBytes(requestPDUBytes)
 	if err != nil {
-		gomodbus.Logger.Sugar().Errorf("failed to parse request: %v", err)
-		responsePDU := pdu.NewPDUErrorResponse(gomodbus.WriteMultipleCoils, gomodbus.IllegalFunction)
+		Logger.Sugar().Errorf("failed to parse request: %v", err)
+		responsePDU := NewPDUErrorResponse(WriteMultipleCoils, IllegalFunction)
 		return responsePDU.ToBytes(), nil
 	}
 
-	if requestPDU.FunctionCode != gomodbus.WriteMultipleCoils {
-		gomodbus.Logger.Sugar().Errorf("invalid function code for write multiple coils: %v", err)
-		responsePDU := pdu.NewPDUErrorResponse(gomodbus.WriteMultipleCoils, gomodbus.IllegalFunction)
+	if requestPDU.FunctionCode != WriteMultipleCoils {
+		Logger.Sugar().Errorf("invalid function code for write multiple coils: %v", err)
+		responsePDU := NewPDUErrorResponse(WriteMultipleCoils, IllegalFunction)
 		return responsePDU.ToBytes(), nil
 	}
 
 	for i := 0; i < int(requestPDU.Quantity); i++ {
 		if _, ok := slave.Coils[requestPDU.StartingAddress+uint16(i)]; !ok {
-			gomodbus.Logger.Sugar().Errorf("coil not found: %v", err)
-			responsePDU := pdu.NewPDUErrorResponse(gomodbus.WriteMultipleCoils, gomodbus.IllegalDataAddress)
+			Logger.Sugar().Errorf("coil not found: %v", err)
+			responsePDU := NewPDUErrorResponse(WriteMultipleCoils, IllegalDataAddress)
 			return responsePDU.ToBytes(), nil
 		}
 		if requestPDU.Values[i/8]&(1<<(i%8)) != 0 {
@@ -313,71 +311,71 @@ func handleWriteMultipleCoils(slave *Slave, requestPDUBytes []byte) ([]byte, err
 		}
 	}
 
-	responsePDU := pdu.NewWriteMultipleCoilsResponse(requestPDU.StartingAddress, requestPDU.Quantity)
+	responsePDU := NewWriteMultipleCoilsResponse(requestPDU.StartingAddress, requestPDU.Quantity)
 	return responsePDU.ToBytes(), nil
 }
 
 func handleWriteSingleRegister(slave *Slave, requestPDUBytes []byte) ([]byte, error) {
 
-	var requestPDU pdu.PDUWriteSingleRegister
+	var requestPDU PDUWriteSingleRegister
 	err := requestPDU.FromBytes(requestPDUBytes)
 	if err != nil {
-		gomodbus.Logger.Sugar().Errorf("failed to parse request: %v", err)
-		responsePDU := pdu.NewPDUErrorResponse(gomodbus.WriteSingleRegister, gomodbus.IllegalFunction)
+		Logger.Sugar().Errorf("failed to parse request: %v", err)
+		responsePDU := NewPDUErrorResponse(WriteSingleRegister, IllegalFunction)
 		return responsePDU.ToBytes(), nil
 	}
 
-	if requestPDU.FunctionCode != gomodbus.WriteSingleRegister {
-		gomodbus.Logger.Sugar().Errorf("invalid function code for write single register: %v", err)
-		responsePDU := pdu.NewPDUErrorResponse(gomodbus.WriteSingleRegister, gomodbus.IllegalFunction)
+	if requestPDU.FunctionCode != WriteSingleRegister {
+		Logger.Sugar().Errorf("invalid function code for write single register: %v", err)
+		responsePDU := NewPDUErrorResponse(WriteSingleRegister, IllegalFunction)
 		return responsePDU.ToBytes(), nil
 	}
 
 	_, ok := slave.HoldingRegisters[requestPDU.Address]
 	if !ok {
-		gomodbus.Logger.Sugar().Errorf("holding register not found: %v", err)
-		responsePDU := pdu.NewPDUErrorResponse(gomodbus.WriteSingleRegister, gomodbus.IllegalDataAddress)
+		Logger.Sugar().Errorf("holding register not found: %v", err)
+		responsePDU := NewPDUErrorResponse(WriteSingleRegister, IllegalDataAddress)
 		return responsePDU.ToBytes(), nil
 	}
 
 	slave.HoldingRegisters[requestPDU.Address] = requestPDU.Value
 
-	responsePDU := pdu.NewWriteSingleRegisterResponse(requestPDU.Address, requestPDU.Value)
+	responsePDU := NewWriteSingleRegisterResponse(requestPDU.Address, requestPDU.Value)
 	return responsePDU.ToBytes(), nil
 }
 
 func handleWriteMultipleRegisters(slave *Slave, requestPDUBytes []byte) ([]byte, error) {
 
-	var requestPDU pdu.PDUWriteMultipleRegisters
+	var requestPDU PDUWriteMultipleRegisters
 	err := requestPDU.FromBytes(requestPDUBytes)
 	if err != nil {
-		gomodbus.Logger.Sugar().Errorf("failed to parse request: %v", err)
-		responsePDU := pdu.NewPDUErrorResponse(gomodbus.WriteMultipleRegisters, gomodbus.IllegalFunction)
+		Logger.Sugar().Errorf("failed to parse request: %v", err)
+		responsePDU := NewPDUErrorResponse(WriteMultipleRegisters, IllegalFunction)
 		return responsePDU.ToBytes(), nil
 	}
 
-	if requestPDU.FunctionCode != gomodbus.WriteMultipleRegisters {
-		gomodbus.Logger.Sugar().Errorf("invalid function code for write multiple registers: %v", err)
-		responsePDU := pdu.NewPDUErrorResponse(gomodbus.WriteMultipleRegisters, gomodbus.IllegalFunction)
+	if requestPDU.FunctionCode != WriteMultipleRegisters {
+		Logger.Sugar().Errorf("invalid function code for write multiple registers: %v", err)
+		responsePDU := NewPDUErrorResponse(WriteMultipleRegisters, IllegalFunction)
 		return responsePDU.ToBytes(), nil
 	}
 
 	if len(requestPDU.Values) != int(requestPDU.Quantity)*2 {
-		gomodbus.Logger.Sugar().Errorf("invalid values length for write multiple registers, expected %d, got %d", requestPDU.Quantity*2, len(requestPDU.Values))
-		responsePDU := pdu.NewPDUErrorResponse(gomodbus.WriteMultipleRegisters, gomodbus.IllegalDataValue)
+		Logger.Sugar().Errorf("invalid values length for write multiple registers, expected %d, got %d", requestPDU.Quantity*2, len(requestPDU.Values))
+		responsePDU := NewPDUErrorResponse(WriteMultipleRegisters, IllegalDataValue)
 		return responsePDU.ToBytes(), nil
 	}
 
 	for i := 0; i < int(requestPDU.Quantity); i++ {
 		if _, ok := slave.HoldingRegisters[requestPDU.StartingAddress+uint16(i)]; !ok {
-			gomodbus.Logger.Sugar().Errorf("holding register not found: %v", err)
-			responsePDU := pdu.NewPDUErrorResponse(gomodbus.WriteMultipleRegisters, gomodbus.IllegalDataAddress)
+			Logger.Sugar().Errorf("holding register not found: %v", err)
+			responsePDU := NewPDUErrorResponse(WriteMultipleRegisters, IllegalDataAddress)
 			return responsePDU.ToBytes(), nil
 		}
 		slave.HoldingRegisters[requestPDU.StartingAddress+uint16(i)] = requestPDU.Values[2*i : 2*i+2]
 	}
 
-	responsePDU := pdu.NewWriteMultipleRegistersResponse(requestPDU.StartingAddress, requestPDU.Quantity)
+	responsePDU := NewWriteMultipleRegistersResponse(requestPDU.StartingAddress, requestPDU.Quantity)
 	return responsePDU.ToBytes(), nil
 }
 

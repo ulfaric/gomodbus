@@ -1,4 +1,4 @@
-package server
+package gomodbus
 
 import (
 	"fmt"
@@ -6,9 +6,6 @@ import (
 
 	"context"
 	"github.com/tarm/serial"
-	"github.com/ulfaric/gomodbus"
-	"github.com/ulfaric/gomodbus/adu"
-	"github.com/ulfaric/gomodbus/pdu"
 )
 
 type SerialServer struct {
@@ -82,12 +79,12 @@ func (s *SerialServer) Start() error {
 
 	port, err := serial.OpenPort(config)
 	if err != nil {
-		gomodbus.Logger.Sugar().Errorf("failed to open serial port: %v", err)
+		Logger.Sugar().Errorf("failed to open serial port: %v", err)
 		return fmt.Errorf("failed to open serial port: %v", err)
 	}
 	defer port.Close()
 
-	gomodbus.Logger.Sugar().Infof("Modbus serial server started on %s", s.Port)
+	Logger.Sugar().Infof("Modbus serial server started on %s", s.Port)
 	s.wg.Add(1)
 	go s.handleRequest(port)
 	return nil
@@ -101,7 +98,7 @@ func (s *SerialServer) Stop() error {
 
 func (s *SerialServer) handleRequest(port *serial.Port) error {
 	defer s.wg.Done()
-	gomodbus.Logger.Sugar().Info("Waiting for requests...")
+	Logger.Sugar().Info("Waiting for requests...")
 	buffer := make([]byte, 256)
 	for {
 		select {
@@ -110,36 +107,36 @@ func (s *SerialServer) handleRequest(port *serial.Port) error {
 		default:
 			n, err := port.Read(buffer)
 			if err != nil {
-				gomodbus.Logger.Sugar().Errorf("failed to read from serial port: %v", err)
+				Logger.Sugar().Errorf("failed to read from serial port: %v", err)
 				continue
 			}
-			gomodbus.Logger.Sugar().Debugf("Server received request: %v", buffer[:n])
+			Logger.Sugar().Debugf("Server received request: %v", buffer[:n])
 
-			requestADU := &adu.SerialADU{}
+			requestADU := &SerialADU{}
 			err = requestADU.FromBytes(buffer[:n])
 			if err != nil {
-				gomodbus.Logger.Sugar().Errorf("failed to parse request: %v", err)
+				Logger.Sugar().Errorf("failed to parse request: %v", err)
 				continue
 			}
 
 			slave, ok := s.Slaves[requestADU.UnitID]
 			if !ok {
-				gomodbus.Logger.Sugar().Errorf("slave not found: %v", requestADU.UnitID)
-				responsePDU := pdu.NewPDUErrorResponse(requestADU.PDU[0], 0x04)
-				response := adu.NewSerialADU(requestADU.UnitID, responsePDU.ToBytes())
+				Logger.Sugar().Errorf("slave not found: %v", requestADU.UnitID)
+				responsePDU := NewPDUErrorResponse(requestADU.PDU[0], 0x04)
+				response := NewSerialADU(requestADU.UnitID, responsePDU.ToBytes())
 				_, err = port.Write(response.ToBytes())
 				if err != nil {
-					gomodbus.Logger.Sugar().Errorf("failed to write response: %v", err)
+					Logger.Sugar().Errorf("failed to write response: %v", err)
 				}
 				continue
 			}
 
 			responsePDU, _ := processRequest(requestADU.PDU, slave)
 
-			responseADU := adu.NewSerialADU(requestADU.UnitID, responsePDU)
+			responseADU := NewSerialADU(requestADU.UnitID, responsePDU)
 			_, err = port.Write(responseADU.ToBytes())
 			if err != nil {
-				gomodbus.Logger.Sugar().Errorf("failed to write response: %v", err)
+				Logger.Sugar().Errorf("failed to write response: %v", err)
 			}
 		}
 	}

@@ -1,11 +1,9 @@
-package adu
+package gomodbus
 
 import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
-
-	"github.com/ulfaric/gomodbus"
 )
 
 type TCPADU struct {
@@ -47,30 +45,30 @@ func (adu *TCPADU) FromBytes(data []byte) error {
 	buffer := bytes.NewBuffer(data)
 
 	if err := binary.Read(buffer, binary.BigEndian, &adu.TransactionID); err != nil {
-		gomodbus.Logger.Sugar().Errorf("failed to parse TransactionID for TCPADU: %v", err)
+		Logger.Sugar().Errorf("failed to parse TransactionID for TCPADU: %v", err)
 		return err
 	}
 
 	if err := binary.Read(buffer, binary.BigEndian, &adu.ProtocolID); err != nil {
-		gomodbus.Logger.Sugar().Errorf("failed to parse ProtocolID for TCPADU: %v", err)
+		Logger.Sugar().Errorf("failed to parse ProtocolID for TCPADU: %v", err)
 		return err
 	}
 
 	if err := binary.Read(buffer, binary.BigEndian, &adu.Length); err != nil {
-		gomodbus.Logger.Sugar().Errorf("failed to parse Length for TCPADU: %v", err)
+		Logger.Sugar().Errorf("failed to parse Length for TCPADU: %v", err)
 		return err
 	}
 
 	unitID, err := buffer.ReadByte()
 	if err != nil {
-		gomodbus.Logger.Sugar().Errorf("failed to parse UnitID for TCPADU: %v", err)
+		Logger.Sugar().Errorf("failed to parse UnitID for TCPADU: %v", err)
 		return err
 	}
 	adu.UnitID = unitID
 
 	// Ensure the remaining bytes match the expected PDU length
 	if int(adu.Length-1) != buffer.Len() {
-		gomodbus.Logger.Sugar().Errorf("invalid PDU length, expected %d, got %d", adu.Length-1, buffer.Len())
+		Logger.Sugar().Errorf("invalid PDU length, expected %d, got %d", adu.Length-1, buffer.Len())
 		return fmt.Errorf("invalid PDU length, expected %d, got %d", adu.Length-1, buffer.Len())
 	}
 

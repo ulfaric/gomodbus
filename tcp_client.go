@@ -1,4 +1,4 @@
-package client
+package gomodbus
 
 import (
 	"crypto/tls"
@@ -7,9 +7,6 @@ import (
 	"net"
 	"os"
 	"time"
-
-	"github.com/ulfaric/gomodbus"
-	"github.com/ulfaric/gomodbus/adu"
 )
 
 type TCPClient struct {
@@ -38,7 +35,7 @@ func (client *TCPClient) Connect() error {
 	// Check if the host is a valid IP address
 	ip := net.ParseIP(client.Host)
 	if ip == nil {
-		gomodbus.Logger.Error("invalid host IP address")
+		Logger.Error("invalid host IP address")
 		return fmt.Errorf("invalid host IP address")
 	}
 
@@ -95,7 +92,7 @@ func (client *TCPClient) Connect() error {
 	}
 
 	client.conn = conn
-	gomodbus.Logger.Sugar().Debugf("client connected to server: %s, %d", address, client.Port)
+	Logger.Sugar().Debugf("client connected to server: %s, %d", address, client.Port)
 	return nil
 }
 
@@ -103,10 +100,10 @@ func (client *TCPClient) Disconnect() error {
 	if client.conn != nil {
 		err := client.conn.Close()
 		if err != nil {
-			gomodbus.Logger.Sugar().Errorf("failed to close connection: %v", err)
+			Logger.Sugar().Errorf("failed to close connection: %v", err)
 			return err
 		}
-		gomodbus.Logger.Sugar().Debugf("client disconnected from server: %s, %d", client.Host, client.Port)
+		Logger.Sugar().Debugf("client disconnected from server: %s, %d", client.Host, client.Port)
 		client.conn = nil
 	}
 	return nil
@@ -114,15 +111,15 @@ func (client *TCPClient) Disconnect() error {
 
 func (client *TCPClient) SendRequest(unitID byte, pduBytes []byte) error {
 	client.conn.SetDeadline(time.Now().Add(time.Millisecond * 100))
-	adu := adu.NewTCPADU(client.transactionID, unitID, pduBytes)
+	adu := NewTCPADU(client.transactionID, unitID, pduBytes)
 	aduBytes := adu.ToBytes()
 	_, err := client.conn.Write(aduBytes)
 	if err != nil {
-		gomodbus.Logger.Sugar().Errorf("client failed to send request: %v", err)
+		Logger.Sugar().Errorf("client failed to send request: %v", err)
 		return err
 	}
 	client.transactionID++
-	gomodbus.Logger.Sugar().Debugf("client sent request: %v", aduBytes)
+	Logger.Sugar().Debugf("client sent request: %v", aduBytes)
 	return nil
 }
 
@@ -134,19 +131,19 @@ func (client *TCPClient) ReceiveResponse() ([]byte, error) {
 	// Read exactly the number of bytes into the buffer
 	n, err := client.conn.Read(buffer)
 	if err != nil {
-		gomodbus.Logger.Sugar().Errorf("client failed to receive response: %v", err)
+		Logger.Sugar().Errorf("client failed to receive response: %v", err)
 		return nil, err
 	}
 
 	// Slice the buffer to the actual number of bytes read
 	responseBytes := buffer[:n]
 
-	gomodbus.Logger.Sugar().Debugf("client received response: %v", responseBytes)
+	Logger.Sugar().Debugf("client received response: %v", responseBytes)
 
-	responseADU := &adu.TCPADU{}
+	responseADU := &TCPADU{}
 	err = responseADU.FromBytes(responseBytes)
 	if err != nil {
-		gomodbus.Logger.Sugar().Errorf("client failed to parse response ADU: %v", err)
+		Logger.Sugar().Errorf("client failed to parse response ADU: %v", err)
 		return nil, err
 	}
 	return responseADU.PDU, nil

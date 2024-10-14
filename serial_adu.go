@@ -1,11 +1,10 @@
-package adu
+package gomodbus
 
 import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
 
-	"github.com/ulfaric/gomodbus"
 )
 
 type SerialADU struct {
@@ -48,7 +47,7 @@ func (adu *SerialADU) FromBytes(data []byte) error {
 	// Read Address
 	err := binary.Read(buffer, binary.BigEndian, &adu.UnitID)
 	if err != nil {
-		gomodbus.Logger.Sugar().Errorf("failed to parse UnitID for SerialADU: %v", err)
+		Logger.Sugar().Errorf("failed to parse UnitID for SerialADU: %v", err)
 		return err
 	}
 
