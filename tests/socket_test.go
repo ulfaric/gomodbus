@@ -114,6 +114,13 @@ func TestSetTCPServer(t *testing.T) {
 	sendRequest(t, conn, socket.RequestType_StartServer, nil)
 	checkResponse(t, conn)
 
+	newRequest := &socket.Slave{
+		UnitId: 1,
+	}
+	sendRequest(t, conn, socket.RequestType_AddSlave, newRequest)
+	checkResponse(t, conn)
+
+
 	sendRequest(t, conn, socket.RequestType_StopServer, nil)
 	checkResponse(t, conn)
 }
