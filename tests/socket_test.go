@@ -120,6 +120,63 @@ func TestSetTCPServer(t *testing.T) {
 	sendRequest(t, conn, socket.RequestType_AddSlave, newRequest)
 	checkResponse(t, conn)
 
+	relayRequest := &socket.Relay{
+		Slave: &socket.Slave{
+			UnitId: 1,
+		},
+		Address: 1,
+		Count: 10,
+		Values: []bool{true, false, true, false, true, false, true, false, true, false},
+		Writable: true,
+	}
+	sendRequest(t, conn, socket.RequestType_AddRelay, relayRequest)
+	checkResponse(t, conn)
+
+	registerRequest := &socket.Register{
+		Slave: &socket.Slave{
+			UnitId: 1,
+		},
+		Address: 1,
+		Count: 10,
+		Values: [][]byte{[]byte{1, 2}, []byte{3, 4}, []byte{5, 6}, []byte{7, 8}, []byte{9, 10}, []byte{11, 12}, []byte{13, 14}, []byte{15, 16}, []byte{17, 18}, []byte{19, 20}},
+		Writable: true,
+	}
+	sendRequest(t, conn, socket.RequestType_AddRegister, registerRequest)
+	checkResponse(t, conn)
+
+	clientRequest := &socket.TCPClientRequest{
+		Host: "127.0.0.1",
+		Port: 1502,
+		UseTls: false,
+	}
+	sendRequest(t, conn, socket.RequestType_SetTCPClient, clientRequest)
+	checkResponse(t, conn)
+
+	sendRequest(t, conn, socket.RequestType_Connect, nil)
+	checkResponse(t, conn)
+
+	registerReadRequest := &socket.Register{
+		Slave: &socket.Slave{
+			UnitId: 1,
+		},
+		Address: 1,
+		Count: 10,
+		Writable: true,
+	}
+	sendRequest(t, conn, socket.RequestType_ReadRegister, registerReadRequest)
+	checkResponse(t, conn)
+
+	deleteRelaysRequest := &socket.Relay{
+		Slave: &socket.Slave{
+			UnitId: 1,
+		},
+		Address: 1,
+		Count: 10,
+		Values: []bool{true, false, true, false, true, false, true, false, true, false},
+		Writable: true,
+	}
+	sendRequest(t, conn, socket.RequestType_DeleteRelay, deleteRelaysRequest)
+	checkResponse(t, conn)
 
 	sendRequest(t, conn, socket.RequestType_StopServer, nil)
 	checkResponse(t, conn)
