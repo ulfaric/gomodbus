@@ -3,7 +3,6 @@ package adu
 import (
 	"bytes"
 	"encoding/binary"
-	"fmt"
 
 	"github.com/ulfaric/gomodbus"
 )
@@ -61,7 +60,7 @@ func (adu *SerialADU) FromBytes(data []byte) error {
 
 	expectedCRC := calculateCRC16(adu.UnitID, adu.PDU)
 	if crc != expectedCRC {
-		return fmt.Errorf("CRC mismatch: expected 0x%X, got 0x%X", expectedCRC, crc)
+		gomodbus.Logger.Sugar().Warnf("CRC mismatch: expected 0x%X, got 0x%X", expectedCRC, crc)
 	}
 
 	adu.CRC = crc
