@@ -10,21 +10,23 @@ import (
 )
 
 type SerialClient struct {
-	Port     string
-	BaudRate int
-	DataBits byte
-	Parity   serial.Parity
-	StopBits serial.StopBits
-	conn     *serial.Port
+	Port       string
+	BaudRate   int
+	DataBits   byte
+	Parity     serial.Parity
+	StopBits   serial.StopBits
+	conn       *serial.Port
+	bufferTime int
 }
 
-func NewSerialClient(port string, baudRate int, dataBits byte, parity serial.Parity, stopBits serial.StopBits) Client {
+func NewSerialClient(port string, baudRate int, dataBits byte, parity serial.Parity, stopBits serial.StopBits, bufferTime int) Client {
 	return &SerialClient{
-		Port:     port,
-		BaudRate: baudRate,
-		DataBits: dataBits,
-		Parity:   parity,
-		StopBits: stopBits,
+		Port:       port,
+		BaudRate:   baudRate,
+		DataBits:   dataBits,
+		Parity:     parity,
+		StopBits:   stopBits,
+		bufferTime: bufferTime,
 	}
 }
 
@@ -83,8 +85,10 @@ func (client *SerialClient) SendRequest(unitID byte, pduBytes []byte) error {
 
 func (client *SerialClient) ReceiveResponse() ([]byte, error) {
 
+	time.Sleep(time.Duration(client.bufferTime) * time.Millisecond)
+
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel() 
+	defer cancel()
 
 	buffer := make([]byte, 512)
 	done := make(chan struct {

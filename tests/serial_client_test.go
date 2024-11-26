@@ -9,7 +9,7 @@ import (
 
 func TestSerialClient_ReadInputRegister(t *testing.T) {
     gomodbus.EnableDebug()
-    client := c.NewSerialClient("/dev/ttyUSB0", 9600, 8, 'N', 1)
+    client := c.NewSerialClient("/dev/ttyUSB0", 9600, 8, 'N', 1, 500)
     err := client.Connect()
     if err != nil {
         t.Fatalf("Failed to connect: %v", err)
@@ -23,11 +23,10 @@ func TestSerialClient_ReadInputRegister(t *testing.T) {
     t.Logf("Input registers: %x", registers)
 }
 
-// ... existing code ...
 
 func TestSerialClient_WriteRegister(t *testing.T) {
     gomodbus.EnableDebug()
-    client := c.NewSerialClient("/dev/ttyUSB0", 9600, 8, 'N', 1)
+    client := c.NewSerialClient("/dev/ttyUSB0", 9600, 8, 'N', 1, 500)
     err := client.Connect()
     if err != nil {
         t.Fatalf("Failed to connect: %v", err)
@@ -48,5 +47,3 @@ func TestSerialClient_WriteRegister(t *testing.T) {
     }
     t.Logf("Successfully wrote to register")
 }
-
-// ... existing code ...
