@@ -406,6 +406,7 @@ func (s *Socket) handleSetSerialClient(bodyBuffer []byte, conn net.Conn) {
 		byte(request.Databits),
 		serial.Parity(request.Parity),
 		serial.StopBits(request.Stopbits),
+		int(request.BufferTime),
 	)
 
 	gomodbus.Logger.Sugar().Infof("created new Serial client to %s", request.Port)

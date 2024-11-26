@@ -71,6 +71,7 @@ message SerialClientRequest {
     uint32 databits = 3;
     uint32 parity = 4;
     uint32 stopbits = 5;
+    uint32 buffer_time = 6;
 }
 
 message Slave {

@@ -3,7 +3,6 @@ package client
 import (
 	"bytes"
 	"fmt"
-	"time"
 
 	"github.com/ulfaric/gomodbus"
 	"github.com/ulfaric/gomodbus/pdu"
@@ -40,8 +39,6 @@ func ReadCoils(c Client, unitID byte, address uint16, quantity uint16) ([]bool, 
 	if err != nil {
 		return nil, err
 	}
-
-	time.Sleep(1000 * time.Millisecond)
 
 	// Receive the response
 	responseBytes, err := c.ReceiveResponse()
@@ -90,8 +87,6 @@ func ReadDiscreteInputs(c Client, unitID byte, address uint16, quantity uint16) 
 		return nil, err
 	}
 
-	time.Sleep(1000 * time.Millisecond)
-
 	// Receive the response
 	responseBytes, err := c.ReceiveResponse()
 	if err != nil {
@@ -139,7 +134,6 @@ func ReadHoldingRegisters(c Client, unitID byte, address uint16, quantity uint16
 		return nil, err
 	}
 
-	time.Sleep(1000 * time.Millisecond)
 
 	// Receive the response
 	responseBytes, err := c.ReceiveResponse()
@@ -192,7 +186,6 @@ func ReadInputRegisters(c Client, unitID byte, address uint16, quantity uint16) 
 		return nil, err
 	}
 
-	time.Sleep(1000 * time.Millisecond)
 
 	// Receive the response
 	responseBytes, err := c.ReceiveResponse()
@@ -245,7 +238,6 @@ func WriteSingleCoil(c Client, unitID byte, address uint16, value bool) error {
 		return err
 	}
 
-	time.Sleep(1000 * time.Millisecond)
 
 	// Receive the response
 	responseBytes, err := c.ReceiveResponse()
@@ -292,7 +284,6 @@ func WriteMultipleCoils(c Client, unitID byte, address uint16, values []bool) er
 		return err
 	}
 
-	time.Sleep(1000 * time.Millisecond)
 
 	// Receive the response
 	responseBytes, err := c.ReceiveResponse()
@@ -339,7 +330,6 @@ func WriteSingleRegister(c Client, unitID byte, address uint16, value []byte) er
 		return err
 	}
 
-	time.Sleep(1000 * time.Millisecond)
 
 	// Receive the response
 	responseBytes, err := c.ReceiveResponse()
@@ -386,7 +376,6 @@ func WriteMultipleRegisters(c Client, unitID byte, address uint16, quantity uint
 		return err
 	}
 
-	time.Sleep(1000 * time.Millisecond)
 
 	// Receive the response
 	responseBytes, err := c.ReceiveResponse()

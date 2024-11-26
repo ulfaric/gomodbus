@@ -9,7 +9,7 @@ import (
 
 func TestSerialClient_ReadInputRegister(t *testing.T) {
     gomodbus.EnableDebug()
-    client := c.NewSerialClient("/dev/ttyUSB0", 9600, 8, 'N', 1)
+    client := c.NewSerialClient("/dev/ttyUSB0", 9600, 8, 'N', 1, 500)
     err := client.Connect()
     if err != nil {
         t.Fatalf("Failed to connect: %v", err)
@@ -27,7 +27,7 @@ func TestSerialClient_ReadInputRegister(t *testing.T) {
 
 func TestSerialClient_WriteRegister(t *testing.T) {
     gomodbus.EnableDebug()
-    client := c.NewSerialClient("/dev/ttyUSB0", 9600, 8, 'N', 1)
+    client := c.NewSerialClient("/dev/ttyUSB0", 9600, 8, 'N', 1, 500)
     err := client.Connect()
     if err != nil {
         t.Fatalf("Failed to connect: %v", err)
@@ -35,14 +35,14 @@ func TestSerialClient_WriteRegister(t *testing.T) {
     defer client.Disconnect()
 
 	value := uint16(0)
-	valueBytes, err := gomodbus.Serializer(value, "big", "big")
+	valueBytes, err := gomodbus.Serializer(value, "big" )
 	if err != nil {
 		t.Fatalf("Failed to serialize value: %v", err)
 	}
 	t.Logf("Value bytes: %x", valueBytes)
 
     // Write a value to a register
-    err = c.WriteMultipleRegisters(client, 170, 3001, 1, valueBytes[0])
+    err = c.WriteMultipleRegisters(client, 170, 3001, 1, valueBytes)
     if err != nil {
         t.Fatalf("Failed to write to register: %v", err)
     }

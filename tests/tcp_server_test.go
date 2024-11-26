@@ -15,10 +15,10 @@ func createTestTCPServer() s.Server {
 	// Initialize coils
 	slave, _ := server.GetSlave(1)
 	for i := 0; i < 10; i++ {
-		slave.Coils[uint16(i)] = false
-		slave.DiscreteInputs[uint16(i)] = false
-		slave.HoldingRegisters[uint16(i)] = []byte{0x00, 0x00}
-		slave.InputRegisters[uint16(i)] = []byte{0x00, 0x00}
+		slave.AddCoils(uint16(i), []bool{false})
+		slave.AddDiscreteInputs(uint16(i), []bool{false})
+		slave.AddHoldingRegisters(uint16(i), [][]byte{{0x00, 0x00}})
+		slave.AddInputRegisters(uint16(i), [][]byte{{0x00, 0x00}})
 	}
 	return server
 }

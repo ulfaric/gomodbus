@@ -8,7 +8,7 @@ import (
 
 func TestSerializer_SerializeInt16(t *testing.T) {
 	var value_int16 int16 = 12345
-	registers, err := gomodbus.Serializer(value_int16, gomodbus.BigEndian, gomodbus.LittleEndian)
+	registers, err := gomodbus.Serializer(value_int16, gomodbus.BigEndian)
 	if err != nil {
 		t.Fatalf("Failed to serialize: %v", err)
 	}
@@ -17,7 +17,7 @@ func TestSerializer_SerializeInt16(t *testing.T) {
 
 func TestSerializer_SerializeInt32(t *testing.T) {
 	var value_int32 int32 = 123456
-	registers, err := gomodbus.Serializer(value_int32, gomodbus.BigEndian, gomodbus.LittleEndian)
+	registers, err := gomodbus.Serializer(value_int32, gomodbus.BigEndian)
 	if err != nil {
 		t.Fatalf("Failed to serialize: %v", err)
 	}
