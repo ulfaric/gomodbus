@@ -16,7 +16,7 @@ func TestSerialClient_ReadInputRegister(t *testing.T) {
     }
     defer client.Disconnect()
 
-    registers, err := c.ReadHoldingRegisters(client, 170, 2002, 1)
+    registers, err := c.ReadHoldingRegisters(client, 170, 2004, 1)
     if err != nil {
         t.Fatalf("Failed to read input registers: %v", err)
     }
@@ -33,7 +33,7 @@ func TestSerialClient_WriteRegister(t *testing.T) {
     }
     defer client.Disconnect()
 
-	value := uint16(0)
+	value := uint16(50)
 	valueBytes, err := gomodbus.Serializer(value, "big", "big")
 	if err != nil {
 		t.Fatalf("Failed to serialize value: %v", err)

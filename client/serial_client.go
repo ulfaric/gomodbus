@@ -75,31 +75,47 @@ func (client *SerialClient) SendRequest(unitID byte, pduBytes []byte) error {
 }
 
 func (client *SerialClient) ReceiveResponse() ([]byte, error) {
-
 	if client.conn == nil {
 		gomodbus.Logger.Sugar().Errorf("serial client not connected")
 		return nil, fmt.Errorf("serial client not connected")
 	}
 
+	// Initial delay for buffer
 	time.Sleep(time.Duration(client.bufferTime) * time.Millisecond)
 
-	buffer := make([]byte, 512)
+	responseChan := make(chan []byte)
+	errChan := make(chan error)
 
-	n, err := client.conn.Read(buffer)
-	if err != nil {
-		gomodbus.Logger.Sugar().Errorf("failed to read response: %v", err)
-		return nil, err
+	go func() {
+		buffer := make([]byte, 512)
+		n, err := client.conn.Read(buffer)
+		if err != nil {
+			errChan <- err
+			return
+		}
+
+		responseBytes := buffer[:n]
+		gomodbus.Logger.Sugar().Debugf("serial client received response: %v", responseBytes)
+
+		responseADU := &adu.SerialADU{}
+		err = responseADU.FromBytes(responseBytes)
+		if err != nil {
+			errChan <- err
+			return
+		}
+		responseChan <- responseADU.PDU
+		client.conn.Flush()
+	}()
+
+	// Wait for either response or timeout
+	select {
+	case response := <-responseChan:
+		return response, nil
+	case err := <-errChan:
+		return nil, fmt.Errorf("read error: %v", err)
+	case <-time.After(5 * time.Second):
+		client.Disconnect()
+		client.Connect()
+		return nil, fmt.Errorf("timeout waiting for response after 5 seconds")
 	}
-
-	responseBytes := buffer[:n]
-	gomodbus.Logger.Sugar().Debugf("serial client received response: %v", responseBytes)
-
-	responseADU := &adu.SerialADU{}
-	err = responseADU.FromBytes(responseBytes)
-	if err != nil {
-		gomodbus.Logger.Sugar().Errorf("serial client failed to parse response ADU: %v", err)
-		return nil, err
-	}
-	return responseADU.PDU, nil
-
 }
