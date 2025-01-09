@@ -2,6 +2,7 @@ package client
 
 import (
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/tarm/serial"
@@ -17,9 +18,12 @@ type SerialClient struct {
 	StopBits   serial.StopBits
 	conn       *serial.Port
 	bufferTime int
+	timeout    int
+
+	mu sync.Mutex
 }
 
-func NewSerialClient(port string, baudRate int, dataBits byte, parity serial.Parity, stopBits serial.StopBits, bufferTime int) Client {
+func NewSerialClient(port string, baudRate int, dataBits byte, parity serial.Parity, stopBits serial.StopBits, bufferTime int, timeout int) Client {
 	return &SerialClient{
 		Port:       port,
 		BaudRate:   baudRate,
@@ -27,6 +31,7 @@ func NewSerialClient(port string, baudRate int, dataBits byte, parity serial.Par
 		Parity:     parity,
 		StopBits:   stopBits,
 		bufferTime: bufferTime,
+		timeout:    timeout,
 	}
 }
 
@@ -55,6 +60,8 @@ func (client *SerialClient) Disconnect() error {
 }
 
 func (client *SerialClient) SendRequest(unitID byte, pduBytes []byte) error {
+	client.mu.Lock()
+	defer client.mu.Unlock()
 
 	if client.conn == nil {
 		gomodbus.Logger.Sugar().Errorf("serial client not connected")
@@ -75,6 +82,9 @@ func (client *SerialClient) SendRequest(unitID byte, pduBytes []byte) error {
 }
 
 func (client *SerialClient) ReceiveResponse() ([]byte, error) {
+	client.mu.Lock()
+	defer client.mu.Unlock()
+
 	if client.conn == nil {
 		gomodbus.Logger.Sugar().Errorf("serial client not connected")
 		return nil, fmt.Errorf("serial client not connected")
@@ -104,7 +114,6 @@ func (client *SerialClient) ReceiveResponse() ([]byte, error) {
 			return
 		}
 		responseChan <- responseADU.PDU
-		client.conn.Flush()
 	}()
 
 	// Wait for either response or timeout
@@ -113,9 +122,9 @@ func (client *SerialClient) ReceiveResponse() ([]byte, error) {
 		return response, nil
 	case err := <-errChan:
 		return nil, fmt.Errorf("read error: %v", err)
-	case <-time.After(5 * time.Second):
+	case <-time.After(time.Duration(client.timeout) * time.Millisecond):
 		client.Disconnect()
 		client.Connect()
-		return nil, fmt.Errorf("timeout waiting for response after 5 seconds")
+		return nil, fmt.Errorf("timeout waiting for response after %d ms", client.timeout)
 	}
 }

@@ -44,6 +44,12 @@ func (adu *TCPADU) ToBytes() []byte {
 }
 
 func (adu *TCPADU) FromBytes(data []byte) error {
+	// Check minimum length requirement (2 bytes TransactionID + 2 bytes ProtocolID + 2 bytes Length + 1 byte UnitID + at least 2 bytes PDU)
+	if len(data) < 9 {
+		gomodbus.Logger.Sugar().Errorf("insufficient data length for TCPADU: got %d bytes, minimum required is 9", len(data))
+		return fmt.Errorf("insufficient data length: got %d bytes, minimum required is 9", len(data))
+	}
+
 	buffer := bytes.NewBuffer(data)
 
 	if err := binary.Read(buffer, binary.BigEndian, &adu.TransactionID); err != nil {

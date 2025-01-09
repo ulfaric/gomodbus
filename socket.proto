@@ -72,6 +72,7 @@ message SerialClientRequest {
     uint32 parity = 4;
     uint32 stopbits = 5;
     uint32 buffer_time = 6;
+    uint32 timeout = 7;
 }
 
 message Slave {

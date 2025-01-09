@@ -3,6 +3,7 @@ package pdu
 import (
 	"bytes"
 	"encoding/binary"
+	"fmt"
 
 	"github.com/ulfaric/gomodbus"
 )
@@ -61,6 +62,10 @@ func (pdu *PDURead) ToBytes() []byte {
 
 // FromBytes populates the PDURead fields from a byte slice
 func (pdu *PDURead) FromBytes(data []byte) error {
+	if len(data) < 5 {
+		gomodbus.Logger.Sugar().Errorf("insufficient data length for PDURead: got %d bytes, minimum required is 5", len(data))
+		return fmt.Errorf("insufficient data length: got %d bytes, minimum required is 5", len(data))
+	}
 	buffer := bytes.NewBuffer(data)
 	functionCode, err := buffer.ReadByte()
 	if err != nil {
@@ -115,6 +120,10 @@ func (pdu *PDUWriteSingleCoil) ToBytes() []byte {
 
 // FromBytes populates the PDUWriteSingleCoil fields from a byte slice
 func (pdu *PDUWriteSingleCoil) FromBytes(data []byte) error {
+	if len(data) < 5 {
+		gomodbus.Logger.Sugar().Errorf("insufficient data length for PDUWriteSingleCoil: got %d bytes, minimum required is 5", len(data))
+		return fmt.Errorf("insufficient data length: got %d bytes, minimum required is 5", len(data))
+	}
 	buffer := bytes.NewBuffer(data)
 	functionCode, err := buffer.ReadByte()
 	if err != nil {
@@ -181,6 +190,10 @@ func (pdu *PDUWriteMultipleCoils) ToBytes() []byte {
 
 // FromBytes populates the PDUWriteMultipleCoils fields from a byte slice
 func (pdu *PDUWriteMultipleCoils) FromBytes(data []byte) error {
+	if len(data) < 8 {
+		gomodbus.Logger.Sugar().Errorf("insufficient data length for PDUWriteMultipleCoils: got %d bytes, minimum required is 8", len(data))
+		return fmt.Errorf("insufficient data length: got %d bytes, minimum required is 8", len(data))
+	}
 	buffer := bytes.NewBuffer(data)
 	functionCode, err := buffer.ReadByte()
 	if err != nil {
@@ -235,6 +248,10 @@ func (pdu *PDUWriteSingleRegister) ToBytes() []byte {
 
 // FromBytes populates the PDUWriteSingleRegister fields from a byte slice
 func (pdu *PDUWriteSingleRegister) FromBytes(data []byte) error {
+	if len(data) < 5 {
+		gomodbus.Logger.Sugar().Errorf("insufficient data length for PDUWriteSingleRegister: got %d bytes, minimum required is 5", len(data))
+		return fmt.Errorf("insufficient data length: got %d bytes, minimum required is 5", len(data))
+	}
 	buffer := bytes.NewBuffer(data)
 	functionCode, err := buffer.ReadByte()
 	if err != nil {
@@ -284,6 +301,10 @@ func (pdu *PDUWriteMultipleRegisters) ToBytes() []byte {
 
 // FromBytes populates the PDUWriteMultipleRegisters fields from a byte slice
 func (pdu *PDUWriteMultipleRegisters) FromBytes(data []byte) error {
+	if len(data) < 8 {
+		gomodbus.Logger.Sugar().Errorf("insufficient data length for PDUWriteMultipleRegisters: got %d bytes, minimum required is 8", len(data))
+		return fmt.Errorf("insufficient data length: got %d bytes, minimum required is 8", len(data))
+	}
 	buffer := bytes.NewBuffer(data)
 	functionCode, err := buffer.ReadByte()
 	if err != nil {

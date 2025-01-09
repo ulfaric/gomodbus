@@ -3,6 +3,7 @@ package adu
 import (
 	"bytes"
 	"encoding/binary"
+	"fmt"
 
 	"github.com/ulfaric/gomodbus"
 )
@@ -41,6 +42,11 @@ func (adu *SerialADU) ToBytes() []byte {
 }
 
 func (adu *SerialADU) FromBytes(data []byte) error {
+	// Check minimum length requirement (1 byte UnitID + at least 2 bytes PDU + 2 bytes CRC)
+	if len(data) < 5 {
+		gomodbus.Logger.Sugar().Errorf("insufficient data length for SerialADU: got %d bytes, minimum required is 5", len(data))
+		return fmt.Errorf("insufficient data length: got %d bytes, minimum required is 5", len(data))
+	}
 
 	buffer := bytes.NewBuffer(data)
 
